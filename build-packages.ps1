@@ -44,6 +44,10 @@ foreach ($tool in $tools) {
         Copy-Item -Path $f.Src -Destination (Join-Path $buildDir $f.Dst) -Recurse -Force
     }
 
+    # 清理 Python 缓存目录（不打包 __pycache__）
+    Get-ChildItem -Path $buildDir -Directory -Recurse -Filter "__pycache__" |
+        Remove-Item -Recurse -Force
+
     # Codex 和 zcode 额外打包 agents/openai.yaml
     if ($tool -in @("codex", "zcode")) {
         $agentsDir = Join-Path $repoRoot "agents"
