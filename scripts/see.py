@@ -37,6 +37,8 @@ MIME_MAP = {
     "gif": "image/gif", "webp": "image/webp", "bmp": "image/bmp",
 }
 DEFAULT_MAX_TOKENS = 8192
+# 下载图片的大小上限（50MB），防止意外下载超大文件
+DEFAULT_MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024
 # GLM thinking 模型回复中可能出现的内置特殊 token
 THINKING_TOKEN_PATTERN = re.compile(
     r"<\|(?:begin_of_box|end_of_box|thought|endofthought)\|>"
@@ -142,11 +144,26 @@ def validate_file(filepath):
     return str(p.resolve()), False
 
 
-def download_url(url):
-    """下载 URL 到临时文件，返回路径"""
+def download_url(url, max_bytes=DEFAULT_MAX_DOWNLOAD_BYTES):
+    """下载 URL 到临时文件，返回路径
+
+    防护：流式读取并限制大小上限；Content-Type 非图片时给出警告。
+    """
     req = urllib.request.Request(url, headers={"User-Agent": "see-glm/1.0"})
     with urllib.request.urlopen(req, timeout=60) as resp:
-        data = resp.read()
+        ctype = resp.headers.get("Content-Type", "")
+        if ctype and not ctype.split(";")[0].strip().lower().startswith("image/"):
+            print(f"警告: {url} 的 Content-Type 为 {ctype}，可能不是图片", file=sys.stderr)
+        data = b""
+        while True:
+            chunk = resp.read(64 * 1024)
+            if not chunk:
+                break
+            data += chunk
+            if len(data) > max_bytes:
+                raise ValueError(
+                    f"下载超过大小上限 {max_bytes // (1024 * 1024)}MB: {url}"
+                )
     suffix = "." + (url.split("?")[0].split(".")[-1] if "." in url.split("?")[0] else "png")
     if suffix.lstrip(".") not in SUPPORTED_EXT:
         suffix = ".png"
@@ -278,6 +295,12 @@ def write_result(output_file, model, mode, files, results, together):
     return str(output_path.resolve())
 
 
+def fatal(message):
+    """打印错误信息并退出（友好提示，避免裸 traceback）"""
+    print(f"ERROR: {message}", file=sys.stderr)
+    sys.exit(1)
+
+
 # ---- 主函数 ----
 def main():
     parser = argparse.ArgumentParser(
@@ -366,14 +389,18 @@ def main():
             mode = "联合理解"
             paths = [lf[1] for lf in local_files]
             content = build_together_content(paths, question)
-            result = call_glm_api(content, model, base_url, jwt_token, max_tokens=max_tokens)
-            results.append(result)
+            try:
+                results.append(call_glm_api(content, model, base_url, jwt_token, max_tokens=max_tokens))
+            except Exception as e:
+                fatal(f"[分析失败] {local_files[0][0]}: {e}")
         elif len(local_files) == 1:
             # 单图模式
             mode = "单图分析"
             content = build_single_content(local_files[0][1], question)
-            result = call_glm_api(content, model, base_url, jwt_token, max_tokens=max_tokens)
-            results.append(result)
+            try:
+                results.append(call_glm_api(content, model, base_url, jwt_token, max_tokens=max_tokens))
+            except Exception as e:
+                fatal(f"[分析失败] {local_files[0][0]}: {e}")
         else:
             # 并行模式
             mode = f"并行分析 ({args.jobs} 并发)"
