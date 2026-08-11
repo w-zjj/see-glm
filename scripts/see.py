@@ -2,7 +2,6 @@
 """
 see-glm — 通过 GLM-4.1V-Thinking-Flash 让 AI 查看图片
 跨平台主入口 (Windows / macOS / Linux)
-
 用法:
   python3 see.py image.png
   python3 see.py image.png --task "这张图里有什么？"
@@ -11,7 +10,6 @@ see-glm — 通过 GLM-4.1V-Thinking-Flash 让 AI 查看图片
   python3 see.py image.png -o result.md
   python3 see.py image.png --model GLM-4.1V-Thinking-Flash
 """
-
 import os
 import re
 import sys
@@ -44,6 +42,7 @@ THINKING_TOKEN_PATTERN = re.compile(
     r"<\|(?:begin_of_box|end_of_box|thought|endofthought)\|>"
 )
 
+
 # ---- 跨平台配置目录 ----
 def get_config_dir():
     """获取配置目录，跨平台"""
@@ -60,7 +59,6 @@ def get_config_dir():
 def load_config():
     """加载配置: 环境变量 > 项目 .env.local > 用户配置文件"""
     config = {}
-
     # 1. 用户私有配置
     config_file = get_config_dir() / "config.env"
     if config_file.is_file():
@@ -69,7 +67,6 @@ def load_config():
             if line and not line.startswith("#") and "=" in line:
                 key, _, value = line.partition("=")
                 config[key.strip()] = value.strip()
-
     # 2. 项目级 .env.local
     script_dir = Path(__file__).resolve().parent
     project_root = script_dir.parent
@@ -80,13 +77,11 @@ def load_config():
             if line and not line.startswith("#") and "=" in line:
                 key, _, value = line.partition("=")
                 config[key.strip()] = value.strip()
-
     # 3. 环境变量优先级最高（覆盖已有值）
     for key in ("GLM_API_KEY", "GLM_BASE_URL", "GLM_MODEL", "GLM_MAX_TOKENS"):
         env_val = os.environ.get(key, "")
         if env_val:
             config[key] = env_val
-
     return config
 
 
@@ -96,14 +91,11 @@ def generate_jwt(api_key):
     if "." not in api_key:
         # 没有点号分隔，直接当作 Bearer token
         return api_key
-
     id_part = api_key.split(".")[0]
     secret_part = api_key.split(".", 1)[1]
-
     # Header
     header = json.dumps({"alg": "HS256", "sign_type": "SIGN"}, separators=(',', ':'))
     header_b64 = base64.urlsafe_b64encode(header.encode()).rstrip(b'=').decode()
-
     # Payload
     now = int(time.time())
     payload = json.dumps({
@@ -112,7 +104,6 @@ def generate_jwt(api_key):
         "timestamp": now
     }, separators=(',', ':'))
     payload_b64 = base64.urlsafe_b64encode(payload.encode()).rstrip(b'=').decode()
-
     # Signature
     signing_input = f"{header_b64}.{payload_b64}"
     signature = hmac.new(
@@ -121,7 +112,6 @@ def generate_jwt(api_key):
         hashlib.sha256
     ).digest()
     sig_b64 = base64.urlsafe_b64encode(signature).rstrip(b'=').decode()
-
     return f"{header_b64}.{payload_b64}.{sig_b64}"
 
 
@@ -143,15 +133,12 @@ def validate_file(filepath):
     """校验文件，返回 (abs_path_or_url, is_url) 或抛出异常"""
     if is_url(filepath):
         return filepath, True
-
     p = Path(filepath)
     if not p.is_file():
         raise FileNotFoundError(f"文件不存在: {filepath}")
-
     ext = get_ext(filepath)
     if ext not in SUPPORTED_EXT:
         raise ValueError(f"不支持的格式 .{ext}，仅支持: {', '.join(sorted(SUPPORTED_EXT))}")
-
     return str(p.resolve()), False
 
 
@@ -160,11 +147,9 @@ def download_url(url):
     req = urllib.request.Request(url, headers={"User-Agent": "see-glm/1.0"})
     with urllib.request.urlopen(req, timeout=60) as resp:
         data = resp.read()
-
     suffix = "." + (url.split("?")[0].split(".")[-1] if "." in url.split("?")[0] else "png")
     if suffix.lstrip(".") not in SUPPORTED_EXT:
         suffix = ".png"
-
     tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
     tmp.write(data)
     tmp.close()
@@ -195,7 +180,6 @@ def call_glm_api(content_list, model, base_url, jwt_token, max_tokens=DEFAULT_MA
         "temperature": 0.1,
         "max_tokens": max_tokens
     }, ensure_ascii=False).encode("utf-8")
-
     req = urllib.request.Request(
         f"{base_url}/chat/completions",
         data=body,
@@ -204,7 +188,6 @@ def call_glm_api(content_list, model, base_url, jwt_token, max_tokens=DEFAULT_MA
             "Authorization": f"Bearer {jwt_token}"
         }
     )
-
     try:
         with urllib.request.urlopen(req, timeout=120) as resp:
             data = json.loads(resp.read().decode("utf-8"))
@@ -258,7 +241,6 @@ def write_result(output_file, model, mode, files, results, together):
     """生成结果 Markdown"""
     output_path = Path(output_file)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-
     lines = [
         "# see-glm 分析结果",
         "",
@@ -270,7 +252,6 @@ def write_result(output_file, model, mode, files, results, together):
         "---",
         "",
     ]
-
     if len(files) == 1:
         lines.append(f"## {files[0]}")
         lines.append("")
@@ -293,7 +274,6 @@ def write_result(output_file, model, mode, files, results, together):
                 lines.append("")
                 lines.append("---")
                 lines.append("")
-
     output_path.write_text("\n".join(lines), encoding="utf-8")
     return str(output_path.resolve())
 
@@ -318,7 +298,6 @@ def main():
     parser.add_argument("--jobs", "-j", type=int, default=DEFAULT_JOBS, help=f"并行并发数 (默认 {DEFAULT_JOBS})")
     parser.add_argument("--model", "-m", default="", help="临时覆盖模型")
     parser.add_argument("-o", "--output", default="", help="输出文件路径")
-
     args = parser.parse_args()
 
     # --onboard 快捷方式
@@ -335,7 +314,6 @@ def main():
     api_key = config.get("GLM_API_KEY", "")
     base_url = config.get("GLM_BASE_URL", DEFAULT_BASE_URL)
     model = args.model or config.get("GLM_MODEL", DEFAULT_MODEL)
-
     # max_tokens: 可用 GLM_MAX_TOKENS 配置覆盖，非法值回退默认
     try:
         max_tokens = int(config.get("GLM_MAX_TOKENS") or DEFAULT_MAX_TOKENS)
@@ -357,7 +335,6 @@ def main():
     # 校验文件
     local_files = []  # (原始输入, 本地绝对路径, 是否为URL)
     tmp_files = []    # 需要清理的临时文件
-
     for f in args.files:
         try:
             resolved, is_net = validate_file(f)
@@ -383,7 +360,6 @@ def main():
     # ---- 执行分析 ----
     results = []
     mode = ""
-
     try:
         if args.together and len(local_files) > 1:
             # 联合模式
@@ -392,18 +368,15 @@ def main():
             content = build_together_content(paths, question)
             result = call_glm_api(content, model, base_url, jwt_token, max_tokens=max_tokens)
             results.append(result)
-
         elif len(local_files) == 1:
             # 单图模式
             mode = "单图分析"
             content = build_single_content(local_files[0][1], question)
             result = call_glm_api(content, model, base_url, jwt_token, max_tokens=max_tokens)
             results.append(result)
-
         else:
             # 并行模式
             mode = f"并行分析 ({args.jobs} 并发)"
-
             def analyze_one(item):
                 orig, local_path, _ = item
                 content = build_single_content(local_path, question)
@@ -411,7 +384,6 @@ def main():
                     return call_glm_api(content, model, base_url, jwt_token, max_tokens=max_tokens)
                 except Exception as e:
                     return f"[分析失败] {orig}: {e}"
-
             # 每张图只提交一次；as_completed 不保序，用索引按输入顺序收集结果
             with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as executor:
                 future_to_index = {
@@ -421,7 +393,6 @@ def main():
                 results = [None] * len(local_files)
                 for future in concurrent.futures.as_completed(future_to_index):
                     results[future_to_index[future]] = future.result()
-
     finally:
         # 清理临时文件
         for tf in tmp_files:
@@ -433,7 +404,6 @@ def main():
     # 写结果
     orig_names = [lf[0] for lf in local_files]
     result_path = write_result(output_file, model, mode, orig_names, results, args.together)
-
     # 唯一输出
     print(f"output_path={result_path}")
 
