@@ -25,7 +25,7 @@ see.py ──base64 原图──▶ GLM-4.1V API ──▶ 视觉理解结果
 - ⚡ **三种模式**：单图分析、多图并行分析（可调并发）、多图联合理解（同一上下文比较差异）
 - 🔑 **安全**：API Key 保存在用户私有目录，绝不写入代码或仓库；Unix 下自动设置 600 权限
 - 🔧 **可配置**：模型名、Base URL 均可覆盖，理论上可对接 OpenAI 兼容端点
-- 🎯 **多工具适配**：一份脚本，支持 zcode / Trae / Claude Code / Codex / WorkBuddy 五大 AI 编码助手
+- 🎯 **多工具适配**：一份脚本，支持 zcode / Trae / Claude Code / Codex / WorkBuddy / OpenCode 六大 AI 编码助手
 
 ## 快速开始
 
@@ -40,6 +40,7 @@ see.py ──base64 原图──▶ GLM-4.1V API ──▶ 视觉理解结果
 | Claude Code | `see-glm-claude.zip` | `~/.claude/skills/see-glm/`（个人级）或 `<项目>/.claude/skills/see-glm/`（项目级） |
 | Codex | `see-glm-codex.zip` | `~/.agents/skills/see-glm/`（用户级）或 `<项目>/.agents/skills/see-glm/`（项目级） |
 | WorkBuddy | `see-glm-workbuddy.zip` | `~/.workbuddy/skills/see-glm/`（用户级）或 `<项目>/.workbuddy/skills/see-glm/`（项目级） |
+| OpenCode | `see-glm-opencode.zip` | `~/.config/opencode/skills/see-glm/`（用户级）或 `<项目>/.opencode/skills/see-glm/`（项目级） |
 
 解压后目录结构（每个包都一样）：
 
@@ -61,7 +62,7 @@ git clone https://github.com/w-zjj/see-glm.git
 cd see-glm
 ```
 
-仓库里 `adapters/` 目录下有 5 个工具的专用 SKILL.md，按需复制到对应 skill 目录：
+仓库里 `adapters/` 目录下有 6 个工具的专用 SKILL.md，按需复制到对应 skill 目录：
 
 ```bash
 # 以 zcode 为例
@@ -174,10 +175,11 @@ see-glm/
 │   ├── trae/SKILL.md
 │   ├── claude/SKILL.md
 │   ├── codex/SKILL.md
-│   └── workbuddy/SKILL.md
+│   ├── workbuddy/SKILL.md
+│   └── opencode/SKILL.md
 ├── agents/
 │   └── openai.yaml       # Codex/zcode Agent 框架适配配置
-├── build-packages.ps1    # 打包脚本（生成 5 个独立 zip）
+├── build-packages.ps1    # 打包脚本（生成 6 个独立 zip）
 ├── README.md
 ├── LICENSE
 └── .gitignore
@@ -185,7 +187,7 @@ see-glm/
 
 ## 各工具适配说明
 
-五个工具都遵循 [Agent Skills 开放标准](https://agentskills.io/)，核心都是 `SKILL.md` + frontmatter。差异主要在 frontmatter 字段和扫描路径：
+六个工具都遵循 [Agent Skills 开放标准](https://agentskills.io/)，核心都是 `SKILL.md` + frontmatter。差异主要在 frontmatter 字段和扫描路径：
 
 | 工具 | 扫描路径（用户级） | frontmatter 特殊字段 |
 |------|------------------|---------------------|
@@ -194,10 +196,11 @@ see-glm/
 | Claude Code | `~/.claude/skills/` 或 `<项目>/.claude/skills/` | `allowed-tools` 可选 |
 | Codex | `~/.agents/skills/` 或 `<项目>/.agents/skills/` | 无特殊，推荐 `agents/openai.yaml` |
 | WorkBuddy | `~/.workbuddy/skills/` 或 `<项目>/.workbuddy/skills/` | `allowed-tools`、`metadata` |
+| OpenCode | `~/.config/opencode/skills/` 或 `<项目>/.opencode/skills/` | `compatibility`；也可直接复用 Claude 兼容路径 |
 
 ## 打包发布
 
-仓库根目录的 `build-packages.ps1` 可一键生成 5 个独立 zip 包：
+仓库根目录的 `build-packages.ps1` 可一键生成 6 个独立 zip 包：
 
 ```powershell
 # 在仓库根目录执行
@@ -212,7 +215,8 @@ dist/
 ├── see-glm-trae.zip
 ├── see-glm-claude.zip
 ├── see-glm-codex.zip
-└── see-glm-workbuddy.zip
+├── see-glm-workbuddy.zip
+└── see-glm-opencode.zip
 ```
 
 每个包内含该工具专用的 `SKILL.md` + 共用 `scripts/` + `LICENSE`，解压即用。
@@ -255,7 +259,7 @@ see.py ──base64 original──▶ GLM-4.1V API ──▶ vision result
 - ⚡ **Three modes**: single image, parallel multi-image (adjustable concurrency), joint multi-image (compare in one context)
 - 🔑 **Secure**: API Key stored in user-private directory, never in code or repo; auto 600 perms on Unix
 - 🔧 **Configurable**: model name and Base URL overridable, compatible with OpenAI-style endpoints
-- 🎯 **Multi-tool adapter**: one set of scripts supports zcode / Trae / Claude Code / Codex / WorkBuddy
+- 🎯 **Multi-tool adapter**: one set of scripts supports zcode / Trae / Claude Code / Codex / WorkBuddy / OpenCode
 
 ## Quick Start
 
@@ -270,6 +274,7 @@ Download the zip for your tool from [Releases](https://github.com/w-zjj/see-glm/
 | Claude Code | `see-glm-claude.zip` | `~/.claude/skills/see-glm/` (personal) or `<project>/.claude/skills/see-glm/` (project) |
 | Codex | `see-glm-codex.zip` | `~/.agents/skills/see-glm/` (user) or `<project>/.agents/skills/see-glm/` (project) |
 | WorkBuddy | `see-glm-workbuddy.zip` | `~/.workbuddy/skills/see-glm/` (user) or `<project>/.workbuddy/skills/see-glm/` (project) |
+| OpenCode | `see-glm-opencode.zip` | `~/.config/opencode/skills/see-glm/` (user) or `<project>/.opencode/skills/see-glm/` (project) |
 
 ### Option 2: Clone from source
 
