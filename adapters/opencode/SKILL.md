@@ -44,7 +44,15 @@ python3 scripts/see.py --together a.png b.png --task "Compare the differences"
 
 # Specify output file
 python3 scripts/see.py /path/to/image.png -o /path/to/result.md
+
+# Output to the current working directory (recommended when running under OpenCode)
+python3 scripts/see.py /path/to/image.png -o ./see-glm-result.md
 ```
+
+When running under OpenCode, always pass `-o` with a **relative path** so the
+result Markdown lands inside the working directory. The default output location
+is the system temp directory, and reading it back may require extra permission
+approval (external_directory) — a relative `-o` avoids that entirely.
 
 ## Parameters
 
