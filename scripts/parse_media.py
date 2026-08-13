@@ -4,10 +4,10 @@ see-glm 媒体文件处理工具
 提供文件校验、格式检测、base64 编码等功能，
 供 see.sh 和其他脚本调用。
 用法:
-  python3 parse_media.py validate /path/to/image.png
-  python3 parse_media.py base64 /path/to/image.png
-  python3 parse_media.py mime /path/to/image.png
-  python3 parse_media.py info /path/to/image.png
+  python parse_media.py validate /path/to/image.png
+  python parse_media.py base64 /path/to/image.png
+  python parse_media.py mime /path/to/image.png
+  python parse_media.py info /path/to/image.png
 """
 import os
 import sys

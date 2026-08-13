@@ -77,7 +77,7 @@ def show_status(config):
     print(f"系统:       {sys.platform}")
     print(f"配置目录:   {CONFIG_DIR}")
     if not env_key and not api_key:
-        print(f"\n尚未配置 API Key，请运行: python3 scripts/onboard.py")
+        print(f"\n尚未配置 API Key，请运行: python scripts/onboard.py")
     else:
         print(f"\n配置就绪，可以直接使用 see.py")
 
@@ -128,7 +128,7 @@ def run_onboard():
     }
     save_config(config)
     print("\n配置完成！现在可以使用 see.py 查看图片了。")
-    print(f"   示例: python3 scripts/see.py C:/Users/me/Desktop/screenshot.png")
+    print(f"   示例: python scripts/see.py C:/Users/me/Desktop/screenshot.png")
 
 
 def main():

@@ -17,11 +17,11 @@ license: MIT
 脚本路径相对于本 Skill 根目录，即 `SKILL.md` 所在目录。
 
 ```bash
-python3 scripts/see.py /path/to/image.png
-python3 scripts/see.py /path/to/image.png --task "What's wrong in this image?"
-python3 scripts/see.py a.png b.png c.png --jobs 3
-python3 scripts/see.py --together before.png after.png --task "Compare the differences"
-python3 scripts/see.py /path/to/image.png -o ./see-glm-result.md
+python scripts/see.py /path/to/image.png
+python scripts/see.py /path/to/image.png --task "What's wrong in this image?"
+python scripts/see.py a.png b.png c.png --jobs 3
+python scripts/see.py --together before.png after.png --task "Compare the differences"
+python scripts/see.py /path/to/image.png -o ./see-glm-result.md
 ```
 
 ## 参数
@@ -55,8 +55,8 @@ output_path=/absolute/path/result.md
 首次使用前配置 API Key：
 
 ```bash
-python3 scripts/onboard.py
-python3 scripts/onboard.py --status
+python scripts/onboard.py
+python scripts/onboard.py --status
 ```
 
 配置文件：

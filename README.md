@@ -29,7 +29,7 @@ git clone https://github.com/w-zjj/see-glm.git
 cd see-glm
 ```
 
-要求 Python 3.6 或更高版本。Windows 没有 `python3` 命令时使用 `python`。
+要求 Python 3.6 或更高版本。命令行示例统一使用 `python`；如果系统只有 `python3` 命令，请将示例中的 `python` 替换为 `python3`。
 
 ### 2. 配置 API Key
 

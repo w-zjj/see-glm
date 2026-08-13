@@ -3,12 +3,12 @@
 see-glm — 通过 GLM-4.6V-Flash 让 AI 查看图片
 跨平台主入口 (Windows / macOS / Linux)
 用法:
-  python3 see.py image.png
-  python3 see.py image.png --task "这张图里有什么？"
-  python3 see.py a.png b.png c.png
-  python3 see.py --together a.png b.png --task "比较差异"
-  python3 see.py image.png -o result.md
-  python3 see.py image.png --model glm-4.6v-flash
+  python see.py image.png
+  python see.py image.png --task "这张图里有什么？"
+  python see.py a.png b.png c.png
+  python see.py --together a.png b.png --task "比较差异"
+  python see.py image.png -o result.md
+  python see.py image.png --model glm-4.6v-flash
 """
 import os
 import re
@@ -520,10 +520,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  python3 see.py screenshot.png
-  python3 see.py a.png b.png
-  python3 see.py --together before.png after.png --task "比较差异"
-  python3 see.py screenshot.png --task "识别报错信息" -o result.md
+  python see.py screenshot.png
+  python see.py a.png b.png
+  python see.py --together before.png after.png --task "比较差异"
+  python see.py screenshot.png --task "识别报错信息" -o result.md
         """
     )
     parser.add_argument("files", nargs="*", help="图片路径或 HTTPS URL")
