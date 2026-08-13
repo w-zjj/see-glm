@@ -123,6 +123,7 @@ def run_onboard():
         "GLM_API_KEY": api_key,
         "GLM_BASE_URL": base_url,
         "GLM_MODEL": model,
+        "GLM_MAX_RETRIES": "3",
         "GLM_THINKING": "disabled",
     }
     save_config(config)

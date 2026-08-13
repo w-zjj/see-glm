@@ -1,0 +1,87 @@
+{
+  "zcode": {
+    "frontmatter": [
+      "name: see-glm",
+      "description: 通过 GLM-4.6V 视觉模型查看和分析图片，为不支持多模态的模型提供视觉桥接。",
+      "license: MIT"
+    ],
+    "install": [
+      "zcode 安装路径：`~/.zcode/skills/see-glm/`（用户级，所有项目可用）"
+    ]
+  },
+  "trae": {
+    "frontmatter": [
+      "name: see-glm",
+      "description: 通过 GLM-4.6V 视觉模型查看和分析图片。",
+      "supported_os:",
+      "  - windows",
+      "  - macos",
+      "  - linux"
+    ],
+    "install": [
+      "Trae 安装路径：",
+      "- 用户级：`~/.trae-cn/skills/see-glm/`",
+      "- 项目级：`<项目根>/.trae/skills/see-glm/`"
+    ]
+  },
+  "claude": {
+    "frontmatter": [
+      "name: see-glm",
+      "description: Views and analyzes images via the GLM-4.6V vision model.",
+      "license: MIT",
+      "allowed-tools: Read, Write, Bash"
+    ],
+    "install": [
+      "Claude Code 安装路径：",
+      "- 用户级：`~/.claude/skills/see-glm/`",
+      "- 项目级：`<project-root>/.claude/skills/see-glm/`"
+    ]
+  },
+  "codex": {
+    "frontmatter": [
+      "name: see-glm",
+      "description: Views and analyzes images via the GLM-4.6V vision model.",
+      "license: MIT"
+    ],
+    "install": [
+      "Codex 安装路径（按以下顺序扫描）：",
+      "- 仓库级：`$REPO_ROOT/.agents/skills/see-glm/`",
+      "- 用户级：`~/.agents/skills/see-glm/`",
+      "- 管理员级：`/etc/codex/skills/see-glm/`"
+    ]
+  },
+  "workbuddy": {
+    "frontmatter": [
+      "name: see-glm",
+      "description: 通过 GLM-4.6V 视觉模型查看和分析图片，为不支持多模态的模型提供视觉桥接。",
+      "license: MIT",
+      "allowed-tools: Read, Write, Bash",
+      "metadata:",
+      "  version: 1.0.0",
+      "  author: w-zjj"
+    ],
+    "install": [
+      "WorkBuddy 安装路径：",
+      "- 用户级：`~/.workbuddy/skills/see-glm/`",
+      "- 项目级：`<项目根>/.workbuddy/skills/see-glm/`"
+    ]
+  },
+  "opencode": {
+    "frontmatter": [
+      "name: see-glm",
+      "description: Views and analyzes images via the GLM-4.6V vision model.",
+      "license: MIT",
+      "compatibility: opencode",
+      "metadata:",
+      "  version: 1.0.0",
+      "  author: w-zjj"
+    ],
+    "install": [
+      "OpenCode 安装路径：",
+      "- 全局：`~/.config/opencode/skills/see-glm/`",
+      "- 项目级：`<project-root>/.opencode/skills/see-glm/`",
+      "",
+      "OpenCode 也会从 `~/.claude/skills/see-glm/` 自动发现此 Skill。"
+    ]
+  }
+}

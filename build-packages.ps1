@@ -8,6 +8,16 @@ $tools = @("zcode", "trae", "claude", "codex", "workbuddy", "opencode")
 $repoRoot = $PSScriptRoot
 $distDir = Join-Path $repoRoot "dist"
 
+Push-Location $repoRoot
+try {
+    & python scripts/generate_adapters.py --check
+    if ($LASTEXITCODE -ne 0) {
+        throw "Adapter documentation is out of date. Run: python scripts/generate_adapters.py"
+    }
+} finally {
+    Pop-Location
+}
+
 # 清理并重建 dist 目录
 if (Test-Path $distDir) {
     Remove-Item -Path $distDir -Recurse -Force

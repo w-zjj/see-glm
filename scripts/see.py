@@ -23,6 +23,7 @@ import subprocess
 import socket
 import tempfile
 import ipaddress
+import email.utils
 import urllib.request
 import urllib.error
 import urllib.parse
@@ -34,6 +35,7 @@ from datetime import datetime
 DEFAULT_MODEL = "glm-4.6v-flash"
 DEFAULT_BASE_URL = "https://open.bigmodel.cn/api/paas/v4"
 DEFAULT_JOBS = 3
+MAX_JOBS = 64
 SUPPORTED_EXT = {"png", "jpg", "jpeg", "gif", "webp", "bmp"}
 MIME_MAP = {
     "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
@@ -44,6 +46,9 @@ DEFAULT_MAX_TOKENS = 8192
 # 单张图片和 API 请求体大小上限，避免原图 base64 后造成超大请求
 DEFAULT_MAX_IMAGE_BYTES = 10 * 1024 * 1024
 DEFAULT_MAX_REQUEST_BYTES = 20 * 1024 * 1024
+DEFAULT_MAX_RETRIES = 3
+DEFAULT_RETRY_BACKOFF = 1.0
+MAX_RETRY_DELAY = 30.0
 # 下载图片的大小上限（50MB），防止意外下载超大文件
 DEFAULT_MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024
 DEFAULT_MAX_REDIRECTS = 3
@@ -94,6 +99,7 @@ def load_config():
         "GLM_MODEL",
         "GLM_MAX_TOKENS",
         "GLM_THINKING",
+        "GLM_MAX_RETRIES",
     ):
         env_val = os.environ.get(key, "")
         if env_val:
@@ -342,6 +348,8 @@ def call_glm_api(
     max_tokens=DEFAULT_MAX_TOKENS,
     max_request_bytes=DEFAULT_MAX_REQUEST_BYTES,
     thinking="disabled",
+    max_retries=DEFAULT_MAX_RETRIES,
+    sleep=time.sleep,
 ):
     """
     调用智谱 GLM API
@@ -370,21 +378,60 @@ def call_glm_api(
             "Authorization": f"Bearer {jwt_token}"
         }
     )
-    try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            return clean_content(data["choices"][0]["message"]["content"])
-    except urllib.error.HTTPError as e:
-        error_body = ""
+
+    retryable_statuses = {408, 429, 500, 502, 503, 504}
+    for attempt in range(max(0, max_retries) + 1):
         try:
-            error_body = e.read().decode("utf-8")
-            error_data = json.loads(error_body)
-            error_msg = error_data.get("error", {}).get("message", error_body)
-        except Exception:
-            error_msg = error_body
-        raise RuntimeError(f"API 请求失败 (HTTP {e.code}): {error_msg}")
-    except urllib.error.URLError as e:
-        raise RuntimeError(f"网络请求失败: {e.reason}")
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                return clean_content(data["choices"][0]["message"]["content"])
+        except urllib.error.HTTPError as e:
+            error_body = ""
+            try:
+                error_body = e.read().decode("utf-8")
+                error_data = json.loads(error_body)
+                error_msg = error_data.get("error", {}).get("message", error_body)
+            except Exception:
+                error_msg = error_body or str(e)
+
+            if e.code not in retryable_statuses or attempt >= max_retries:
+                raise RuntimeError(f"API 请求失败 (HTTP {e.code}): {error_msg}")
+
+            delay = _retry_delay(e.headers, attempt)
+            print(
+                f"警告: API 请求临时失败 (HTTP {e.code})，"
+                f"{delay:.1f}s 后重试 ({attempt + 1}/{max_retries})",
+                file=sys.stderr,
+            )
+            sleep(delay)
+        except urllib.error.URLError as e:
+            if attempt >= max_retries:
+                raise RuntimeError(f"网络请求失败: {e.reason}")
+            delay = _retry_delay({}, attempt)
+            print(
+                f"网络请求临时失败，{delay:.1f}s 后重试 "
+                f"({attempt + 1}/{max_retries})",
+                file=sys.stderr,
+            )
+            sleep(delay)
+
+
+def _retry_delay(headers, attempt):
+    """Honor Retry-After when possible, otherwise use capped exponential backoff."""
+    retry_after = headers.get("Retry-After", "") if headers else ""
+    try:
+        delay = float(retry_after)
+    except (TypeError, ValueError):
+        delay = None
+        if retry_after:
+            try:
+                retry_at = email.utils.parsedate_to_datetime(retry_after)
+                delay = retry_at.timestamp() - time.time()
+            except (TypeError, ValueError, OverflowError):
+                delay = None
+    if delay is None:
+        delay = DEFAULT_RETRY_BACKOFF * (2 ** attempt)
+    return max(0.0, min(delay, MAX_RETRY_DELAY))
 
 
 # ---- 构建请求内容 ----
@@ -483,7 +530,20 @@ def main():
     parser.add_argument("--onboard", action="store_true", help="快捷启动配置流程")
     parser.add_argument("--task", "-t", default="", help="自定义提问，原样发送给视觉模型")
     parser.add_argument("--together", action="store_true", help="多图联合理解模式")
-    parser.add_argument("--jobs", "-j", type=int, default=DEFAULT_JOBS, help=f"并行并发数 (默认 {DEFAULT_JOBS})")
+    parser.add_argument(
+        "--jobs",
+        "-j",
+        type=int,
+        default=DEFAULT_JOBS,
+        choices=range(1, MAX_JOBS + 1),
+        metavar=f"1-{MAX_JOBS}",
+        help=f"并行并发数 (默认 {DEFAULT_JOBS}，范围 1-{MAX_JOBS})",
+    )
+    parser.add_argument(
+        "--allow-partial",
+        action="store_true",
+        help="多图并行模式部分失败时仍返回成功退出码",
+    )
     parser.add_argument("--model", "-m", default="", help="临时覆盖模型")
     parser.add_argument("-o", "--output", default="", help="输出文件路径")
     args = parser.parse_args()
@@ -508,6 +568,11 @@ def main():
     except (TypeError, ValueError):
         max_tokens = DEFAULT_MAX_TOKENS
     thinking = (config.get("GLM_THINKING") or "disabled").strip().lower()
+    try:
+        max_retries = int(config.get("GLM_MAX_RETRIES") or DEFAULT_MAX_RETRIES)
+    except (TypeError, ValueError):
+        max_retries = DEFAULT_MAX_RETRIES
+    max_retries = max(0, min(max_retries, 10))
 
     if not api_key:
         print("ERROR: 未配置 API Key", file=sys.stderr)
@@ -548,6 +613,7 @@ def main():
 
     # ---- 执行分析 ----
     results = []
+    analysis_errors = []
     mode = ""
     try:
         if args.together and len(local_files) > 1:
@@ -564,6 +630,7 @@ def main():
                         jwt_token,
                         max_tokens=max_tokens,
                         thinking=thinking,
+                        max_retries=max_retries,
                     )
                 )
             except Exception as e:
@@ -581,6 +648,7 @@ def main():
                         jwt_token,
                         max_tokens=max_tokens,
                         thinking=thinking,
+                        max_retries=max_retries,
                     )
                 )
             except Exception as e:
@@ -592,16 +660,20 @@ def main():
                 orig, local_path, _ = item
                 content = build_single_content(local_path, question)
                 try:
-                    return call_glm_api(
-                        content,
-                        model,
-                        base_url,
-                        jwt_token,
-                        max_tokens=max_tokens,
-                        thinking=thinking,
+                    return (
+                        call_glm_api(
+                            content,
+                            model,
+                            base_url,
+                            jwt_token,
+                            max_tokens=max_tokens,
+                            thinking=thinking,
+                            max_retries=max_retries,
+                        ),
+                        None,
                     )
                 except Exception as e:
-                    return f"[分析失败] {orig}: {e}"
+                    return None, f"[分析失败] {orig}: {e}"
             # 每张图只提交一次；as_completed 不保序，用索引按输入顺序收集结果
             with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as executor:
                 future_to_index = {
@@ -610,7 +682,10 @@ def main():
                 }
                 results = [None] * len(local_files)
                 for future in concurrent.futures.as_completed(future_to_index):
-                    results[future_to_index[future]] = future.result()
+                    result, error = future.result()
+                    results[future_to_index[future]] = result or error
+                    if error:
+                        analysis_errors.append(error)
     finally:
         # 清理临时文件
         for tf in tmp_files:
@@ -622,6 +697,13 @@ def main():
     # 写结果
     orig_names = [lf[0] for lf in local_files]
     result_path = write_result(output_file, model, mode, orig_names, results, args.together)
+    if analysis_errors:
+        print(
+            f"ERROR: {len(analysis_errors)}/{len(local_files)} 张图片分析失败",
+            file=sys.stderr,
+        )
+        if not args.allow_partial:
+            sys.exit(2)
     # 唯一输出
     print(f"output_path={result_path}")
 

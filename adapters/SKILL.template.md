@@ -1,10 +1,4 @@
-name: see-glm
-description: 通过 GLM-4.6V 视觉模型查看和分析图片，为不支持多模态的模型提供视觉桥接。
-license: MIT
-allowed-tools: Read, Write, Bash
-metadata:
-  version: 1.0.0
-  author: w-zjj
+{{FRONTMATTER}}
 ---
 
 # see-glm - GLM Vision Bridge
@@ -91,6 +85,4 @@ GLM_THINKING=disabled
 
 ## 安装
 
-WorkBuddy 安装路径：
-- 用户级：`~/.workbuddy/skills/see-glm/`
-- 项目级：`<项目根>/.workbuddy/skills/see-glm/`
+{{INSTALLATION}}

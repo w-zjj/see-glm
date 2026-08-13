@@ -125,6 +125,7 @@ output_path=/absolute/path/result.md
 | `GLM_BASE_URL` | `https://open.bigmodel.cn/api/paas/v4` | API 基础地址 |
 | `GLM_MODEL` | `glm-4.6v-flash` | 视觉模型名称 |
 | `GLM_MAX_TOKENS` | `8192` | 模型回复最大 token 数 |
+| `GLM_MAX_RETRIES` | `3` | API 临时错误最大重试次数，范围 `0-10` |
 | GLM_THINKING | disabled | 是否启用思考模式，可选 enabled / disabled |
 
 兼容 OpenAI 风格服务时，可覆盖 API 地址、模型和 Bearer Token：
@@ -134,7 +135,10 @@ export GLM_BASE_URL="https://your-endpoint/v4"
 export GLM_MODEL="your-vision-model"
 export GLM_API_KEY="your-token"
 export GLM_THINKING="disabled"
+export GLM_MAX_RETRIES="3"
 ```
+
+`GLM_MAX_RETRIES` defaults to `3` and is clamped to `0-10`. Temporary HTTP statuses (`408`, `429`, `500`, `502`, `503`, `504`) and transient network errors are retried with `Retry-After` when provided, otherwise capped exponential backoff up to 30 seconds. In parallel mode, failures produce exit code `2` by default; use `--allow-partial` to explicitly allow a successful exit with partial results.
 
 智谱点号格式 API Key 会按智谱 JWT 规则生成 Token；不含点号的 Key 会直接作为 Bearer Token 使用。
 

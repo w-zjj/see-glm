@@ -2,6 +2,7 @@
 import base64
 import io
 import json
+import subprocess
 import sys
 import socket
 from pathlib import Path
@@ -336,6 +337,53 @@ def test_load_config_priority(tmp_path, monkeypatch):
     assert cfg["GLM_MODEL"] == "m1"
 
 
+def test_call_glm_api_retries_rate_limit_and_honors_retry_after(monkeypatch):
+    attempts = []
+    delays = []
+    response_body = {"choices": [{"message": {"content": "ok"}}]}
+
+    def fake_urlopen(request, *args, **kwargs):
+        attempts.append(request)
+        if len(attempts) == 1:
+            raise HTTPError(
+                "https://x",
+                429,
+                "Too Many Requests",
+                {"Retry-After": "2"},
+                io.BytesIO(b'{"error":{"message":"rate limited"}}'),
+            )
+        return _FakeResp(json.dumps(response_body).encode(), {})
+
+    monkeypatch.setattr(see.urllib.request, "urlopen", fake_urlopen)
+    result = see.call_glm_api(
+        [], "m", "https://x", "token", max_retries=2, sleep=delays.append
+    )
+    assert result == "ok"
+    assert len(attempts) == 2
+    assert delays == [2.0]
+
+
+def test_call_glm_api_does_not_retry_auth_error(monkeypatch):
+    attempts = []
+
+    def fake_urlopen(request, *args, **kwargs):
+        attempts.append(request)
+        raise HTTPError(
+            "https://x",
+            401,
+            "Unauthorized",
+            {},
+            io.BytesIO(b'{"error":{"message":"bad key"}}'),
+        )
+
+    monkeypatch.setattr(see.urllib.request, "urlopen", fake_urlopen)
+    with pytest.raises(RuntimeError, match="bad key"):
+        see.call_glm_api(
+            [], "m", "https://x", "token", max_retries=3, sleep=lambda _: None
+        )
+    assert len(attempts) == 1
+
+
 def test_default_model_is_glm_46v_flash():
     assert see.DEFAULT_MODEL == "glm-4.6v-flash"
 
@@ -353,3 +401,82 @@ def test_call_glm_api_includes_thinking_mode(monkeypatch):
         [], "glm-4.6v-flash", "https://x", "token", thinking="enabled"
     ) == "ok"
     assert captured["body"]["thinking"] == {"type": "enabled"}
+
+
+@pytest.mark.parametrize("jobs", ["0", "-1", "65"])
+def test_jobs_out_of_range_rejected(jobs):
+    script = Path(__file__).resolve().parent.parent / "scripts" / "see.py"
+    result = subprocess.run(
+        [sys.executable, str(script), "missing.png", "--jobs", jobs],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "invalid choice" in result.stderr
+
+
+@pytest.mark.parametrize("jobs", ["1", "3", "64"])
+def test_jobs_in_range_reaches_file_validation(jobs):
+    script = Path(__file__).resolve().parent.parent / "scripts" / "see.py"
+    result = subprocess.run(
+        [sys.executable, str(script), "missing.png", "--jobs", jobs],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "invalid choice" not in result.stderr
+    assert "missing.png" in result.stderr
+
+
+@pytest.mark.parametrize("allow_partial, expected_code", [(False, 2), (True, None)])
+def test_parallel_failure_policy_writes_partial_results(
+    tmp_path, monkeypatch, capsys, allow_partial, expected_code
+):
+    first = tmp_path / "first.png"
+    second = tmp_path / "second.png"
+    first.write_bytes(b"\x89PNG\r\n\x1a\n")
+    second.write_bytes(b"\x89PNG\r\n\x1a\n")
+    output = tmp_path / "result.md"
+
+    def fake_validate_file(filepath):
+        return str(Path(filepath).resolve()), False
+
+    def fake_build_content(filepath, question):
+        return [{"path": Path(filepath).name}]
+
+    def fake_call(content, *args, **kwargs):
+        if content[0]["path"] == "second.png":
+            raise RuntimeError("temporary failure")
+        return "first result"
+
+    monkeypatch.setattr(see, "load_config", lambda: {"GLM_API_KEY": "token"})
+    monkeypatch.setattr(see, "validate_file", fake_validate_file)
+    monkeypatch.setattr(see, "build_single_content", fake_build_content)
+    monkeypatch.setattr(see, "call_glm_api", fake_call)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "see.py",
+            str(first),
+            str(second),
+            "--jobs",
+            "2",
+            "--output",
+            str(output),
+        ]
+        + (["--allow-partial"] if allow_partial else []),
+    )
+
+    if expected_code is None:
+        see.main()
+    else:
+        with pytest.raises(SystemExit) as exc_info:
+            see.main()
+        assert exc_info.value.code == expected_code
+
+    assert output.is_file()
+    text = output.read_text(encoding="utf-8")
+    assert "first result" in text
+    assert "[分析失败]" in text
+    assert "1/2" in capsys.readouterr().err
