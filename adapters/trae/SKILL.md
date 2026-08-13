@@ -19,6 +19,13 @@ supported_os:
 
 脚本路径相对于本 Skill 根目录，即 `SKILL.md` 所在目录。
 
+调用脚本前先根据当前环境选择 Python 命令：
+- 优先检查并使用 `python`
+- 如果 `python` 不可用，再检查并使用 `python3`
+- 不要默认假设当前环境一定提供 `python3`
+
+在 Windows、PowerShell 和多数 Windows Agent 环境中通常使用 `python`；在部分 macOS/Linux 环境中可能需要使用 `python3`。下面示例使用 `python`，如果检查结果只有 `python3` 可用，将示例中的命令替换为 `python3`。
+
 ```bash
 python scripts/see.py /path/to/image.png
 python scripts/see.py /path/to/image.png --task "What's wrong in this image?"
