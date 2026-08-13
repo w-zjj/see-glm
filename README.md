@@ -1,5 +1,11 @@
 # see-glm
 
+![release](https://img.shields.io/github/v/release/w-zjj/see-glm?label=Latest&logo=github) ![license](https://img.shields.io/github/license/w-zjj/see-glm?logo=github) ![python](https://img.shields.io/badge/python-3.6%2B-blue?logo=python)
+
+> **最新版本：[v1.3.1](https://github.com/w-zjj/see-glm/releases/latest)** · 以 [Releases](https://github.com/w-zjj/see-glm/releases) 中的 tag 为准，`main` 分支可能滞后于最新 release。
+
+English: [README_EN.md](./README_EN.md)
+
 让不支持视觉输入的 AI 编码助手通过智谱 GLM-4.6V-Flash 查看和分析图片，并将结果写入 Markdown 文件。
 
 see-glm 仅使用 Python 标准库，无需安装第三方运行时依赖，支持 Windows、macOS 和 Linux。
