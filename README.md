@@ -1,215 +1,188 @@
-# see-glm — 让 AI 看懂图片的视觉桥接工具
+# see-glm
 
-为非多模态模型（如纯文本 LLM、编码助手）提供图片理解能力：通过调用 **GLM-4.1V-Thinking-Flash** 视觉模型，把图片分析结果带回当前会话。零第三方依赖，纯 Python 标准库，跨平台。
+让不支持视觉输入的 AI 编码助手读取图片，并把分析结果写回 Markdown 文件。
 
-[English](#english) | 中文
+see-glm 通过智谱 GLM 视觉模型分析截图、报错图片、UI 图片和多张对比图片。项目仅使用 Python 标准库，无需安装第三方依赖，支持 Windows、macOS 和 Linux。
 
-## 为什么需要它？
-
-很多 AI 编码助手 / CLI 使用的模型不支持图片输入（截图、报错图、UI 图都无法"看见"）。see-glm 提供了一条简单的桥接路径：
-
-```
-不支持视觉的模型
-  │ 看到图片路径后调用
-  ▼
-see.py ──base64 原图──▶ GLM-4.1V API ──▶ 视觉理解结果
-  ◀─────────────────────────────────┘
-  结果写回 Markdown 文件，模型直接读取
-```
+当前版本：`v1.2.1`
 
 ## 特性
 
-- 🖼️ **零依赖**：仅用 Python 3 标准库，克隆即用，无需 pip install
-- 🌍 **跨平台**：Windows / macOS / Linux
-- 📦 **多格式**：PNG / JPG / JPEG / GIF / WebP / BMP，支持本地文件和 HTTPS URL
-- ⚡ **三种模式**：单图分析、多图并行分析（可调并发）、多图联合理解（同一上下文比较差异）
-- 🔑 **安全**：API Key 保存在用户私有目录，绝不写入代码或仓库；Unix 下自动设置 600 权限
-- 🔧 **可配置**：模型名、Base URL 均可覆盖，理论上可对接 OpenAI 兼容端点
-- 🎯 **多工具适配**：一份脚本，支持 zcode / Trae / Claude Code / Codex / WorkBuddy / OpenCode 六大 AI 编码助手
+- 支持 PNG、JPG、JPEG、GIF、WebP、BMP
+- 支持本地图片和远程 HTTPS 图片
+- 支持单图分析、多图并行分析、多图联合分析
+- 支持自定义问题、模型、API 地址和输出文件
+- 本地图片会校验真实文件头，不仅依赖扩展名
+- 远程图片会校验 HTTPS、DNS 解析地址、重定向目标和真实图片格式
+- 默认限制单张本地图片为 10MB，API 请求体为 20MB
+- 仅使用 Python 标准库
+- 提供 zcode、Trae、Claude Code、Codex、WorkBuddy、OpenCode 适配器
 
 ## 快速开始
 
-### 方式一：下载 Release 包（推荐）
+### 1. 获取项目
 
-从 [Releases](https://github.com/w-zjj/see-glm/releases) 下载对应工具的压缩包，解压到该工具的 skill 目录即可。
-
-| 工具 | 下载文件 | 解压路径 |
-|------|---------|---------|
-| zcode | `see-glm-zcode.zip` | `~/.zcode/skills/see-glm/` |
-| Trae | `see-glm-trae.zip` | `~/.trae-cn/skills/see-glm/`（用户级）或 `<项目>/.trae/skills/see-glm/`（项目级） |
-| Claude Code | `see-glm-claude.zip` | `~/.claude/skills/see-glm/`（个人级）或 `<项目>/.claude/skills/see-glm/`（项目级） |
-| Codex | `see-glm-codex.zip` | `~/.agents/skills/see-glm/`（用户级）或 `<项目>/.agents/skills/see-glm/`（项目级） |
-| WorkBuddy | `see-glm-workbuddy.zip` | `~/.workbuddy/skills/see-glm/`（用户级）或 `<项目>/.workbuddy/skills/see-glm/`（项目级） |
-| OpenCode | `see-glm-opencode.zip` | `~/.config/opencode/skills/see-glm/`（用户级）或 `<项目>/.opencode/skills/see-glm/`（项目级） |
-
-解压后目录结构（每个包都一样）：
-
-```
-see-glm/
-├── SKILL.md          # 该工具专用的 frontmatter 适配版
-├── scripts/
-│   ├── see.py        # 主入口
-│   ├── onboard.py    # 配置 API Key
-│   ├── parse_media.py
-│   └── see.sh
-└── LICENSE
-```
-
-### 方式二：从源码克隆
+推荐从 [Releases](https://github.com/w-zjj/see-glm/releases) 下载对应工具的 ZIP 包。也可以从源码运行：
 
 ```bash
 git clone https://github.com/w-zjj/see-glm.git
 cd see-glm
 ```
 
-仓库里 `adapters/` 目录下有 6 个工具的专用 SKILL.md，按需复制到对应 skill 目录：
+项目要求 Python 3.6+。Windows 如果没有 `python3`，请使用 `python`。
+
+### 2. 配置 API Key
+
+交互式配置：
 
 ```bash
-# 以 zcode 为例
-mkdir -p ~/.zcode/skills/see-glm
-cp -r scripts ~/.zcode/skills/see-glm/
-cp adapters/zcode/SKILL.md ~/.zcode/skills/see-glm/
-cp LICENSE ~/.zcode/skills/see-glm/
+python scripts/onboard.py
 ```
 
-### 配置 API Key
-
-首次使用前需要配置智谱 API Key：
+快捷方式：
 
 ```bash
-python3 scripts/onboard.py
-# 或一键配置：python3 scripts/see.py --onboard
-# 查看配置状态：python3 scripts/onboard.py --status
+python scripts/see.py --onboard
 ```
 
-Windows 上如果 `python3` 不在 PATH，请改用 `python`。
+查看配置状态：
 
-### 分析图片
+```bash
+python scripts/onboard.py --status
+```
+
+配置文件默认位置：
+
+| 系统 | 路径 |
+|---|---|
+| Windows | `%APPDATA%\see-glm\config.env` |
+| macOS / Linux | `~/.config/see-glm/config.env` |
+
+也可以使用环境变量：
+
+```bash
+set GLM_API_KEY=your-api-key
+```
+
+```bash
+export GLM_API_KEY=your-api-key
+```
+
+不要把 API Key 写入代码、提交到仓库或粘贴到日志中。
+
+### 3. 分析图片
 
 ```bash
 # 单图分析
-python3 scripts/see.py screenshot.png
+python scripts/see.py screenshot.png
 
-# 带自定义问题（原样发送给视觉模型）
-python3 scripts/see.py error.png --task "请提取截图中的报错信息"
+# 提取报错信息
+python scripts/see.py error.png --task "请完整提取图片中的报错信息"
 
-# 多图并行分析（默认 3 并发）
-python3 scripts/see.py a.png b.png c.png
+# 多图并行分析
+python scripts/see.py before.png after.png
 
-# 多图联合理解：所有图进入同一次请求，适合比较差异
-python3 scripts/see.py --together before.png after.png --task "比较两张图的差异"
+# 多图联合分析
+python scripts/see.py --together before.png after.png \
+  --task "比较两张图片的差异"
 
-# 分析网络图片
-python3 scripts/see.py https://example.com/photo.jpg
+# 分析远程图片
+python scripts/see.py https://example.com/photo.jpg
 
-# 指定结果输出文件
-python3 scripts/see.py image.png -o result.md
-
-# 临时覆盖模型
-python3 scripts/see.py image.png --model glm-4v-plus
+# 指定输出文件
+python scripts/see.py screenshot.png --output result.md
 ```
 
-## 参数
+成功时标准输出只包含一行：
 
-| 参数 | 用途 |
-|---|---|
-| `图片路径/URL` | 必填，支持本地文件和 HTTPS URL |
-| `--task "问题"` | 可选，自定义提问，原样发送给视觉模型 |
-| `--together` | 可选，多图联合理解模式 |
-| `--jobs N` | 可选，并行模式并发数（默认 3） |
-| `--model NAME` | 可选，临时覆盖模型 |
-| `-o FILE` | 可选，指定结果输出文件路径 |
-| `--onboard` | 可选，快捷启动配置流程 |
-
-### 输出
-
-成功后 stdout 只输出一行，方便脚本捕获：
-
-```
+```text
 output_path=/absolute/path/result.md
 ```
 
-结果 Markdown 包含：使用的模型、分析模式、视觉模型的完整回复。
+结果文件包含模型、分析模式、输入文件和模型回复。
 
-## 配置
+## 命令参数
 
-优先级：**环境变量 > 项目级 `.env.local` > 用户配置文件**
+| 参数 | 说明 |
+|---|---|
+| `图片路径/URL` | 一个或多个本地图片路径或 HTTPS URL |
+| `--task`, `-t` | 自定义问题 |
+| `--together` | 将多张图片放入同一次请求进行联合分析 |
+| `--jobs`, `-j` | 并行分析并发数，默认 `3` |
+| `--model`, `-m` | 临时覆盖模型名称 |
+| `--output`, `-o` | 指定 Markdown 输出路径 |
+| `--onboard` | 启动 API Key 配置流程 |
+
+并行模式建议使用合理的 `--jobs` 值，避免同时消耗过多 API 配额。
+
+## 配置项
+
+配置优先级：环境变量 > 项目级 `.env.local` > 用户配置文件。
 
 | 配置项 | 默认值 | 说明 |
 |---|---|---|
-| `GLM_API_KEY` | — | 智谱 API Key（`xxxx.xxxx` 格式，[open.bigmodel.cn](https://open.bigmodel.cn/) 获取） |
-| `GLM_BASE_URL` | `https://open.bigmodel.cn/api/paas/v4` | API 地址 |
-| `GLM_MODEL` | `GLM-4.1V-Thinking-Flash` | 模型名 |
-| `GLM_MAX_TOKENS` | `8192` | 单次回复最大 token 数（thinking 模型思维链较长，建议 ≥8192） |
+| `GLM_API_KEY` | 无 | 智谱 API Key |
+| `GLM_BASE_URL` | `https://open.bigmodel.cn/api/paas/v4` | API 基础地址 |
+| `GLM_MODEL` | `GLM-4.1V-Thinking-Flash` | 视觉模型名称 |
+| `GLM_MAX_TOKENS` | `8192` | 模型回复最大 token 数 |
 
-配置文件位置（由 onboard.py 生成）：
-
-- **Windows**: `%APPDATA%\see-glm\config.env`
-- **macOS / Linux**: `~/.config/see-glm/config.env`
-
-⚠️ **切勿将 `.env.local` 或 `config.env` 提交到版本控制**（已包含在 .gitignore 中）。
-
-### 对接其他模型服务
-
-代码默认使用智谱 API。想换其他兼容服务时：
+兼容 OpenAI 风格服务时，可覆盖 API 地址、模型和 Bearer Token：
 
 ```bash
 export GLM_BASE_URL="https://your-endpoint/v4"
 export GLM_MODEL="your-vision-model"
-export GLM_API_KEY="your-key"
+export GLM_API_KEY="your-token"
 ```
 
-注意：智谱 API Key 的 JWT 签名是智谱特有的；`see.py` 检测到无点号分隔的 Key 时会直接作为 Bearer Token 发送，可兼容部分 OpenAI 风格端点，但不同服务的鉴权方式请以官方文档为准。
+智谱点号格式 API Key 会按智谱 JWT 规则生成 Token；不含点号的 Key 会直接作为 Bearer Token 使用。
 
-## 仓库结构
+## 限制与安全行为
 
-```
-see-glm/
-├── scripts/              # 共用脚本（所有工具一样）
-│   ├── see.py            # 主入口：校验 → 编码 → 调 API → 写结果
-│   ├── onboard.py        # 交互式配置 API Key
-│   ├── parse_media.py    # 媒体工具：校验 / base64 / MIME / 尺寸
-│   └── see.sh            # bash 包装（python3 / python 自动降级）
-├── adapters/             # 各工具的 SKILL.md 适配版
-│   ├── zcode/SKILL.md
-│   ├── trae/SKILL.md
-│   ├── claude/SKILL.md
-│   ├── codex/SKILL.md
-│   ├── workbuddy/SKILL.md
-│   └── opencode/SKILL.md
-├── agents/
-│   └── openai.yaml       # Codex/zcode Agent 框架适配配置
-├── build-packages.ps1    # 打包脚本（生成 6 个独立 zip）
-├── README.md
-├── LICENSE
-└── .gitignore
-```
+### 图片格式
 
-## 各工具适配说明
+本地图片必须满足以下条件：
 
-六个工具都遵循 [Agent Skills 开放标准](https://agentskills.io/)，核心都是 `SKILL.md` + frontmatter。差异主要在 frontmatter 字段和扫描路径：
+1. 文件扩展名属于支持列表；
+2. 文件头能够识别为 PNG、JPEG、GIF、WebP 或 BMP；
+3. 真实格式与扩展名一致，JPG 和 JPEG 互相兼容。
 
-| 工具 | 扫描路径（用户级） | frontmatter 特殊字段 |
-|------|------------------|---------------------|
-| zcode | `~/.zcode/skills/` | 无特殊，配合 `agents/openai.yaml` |
-| Trae | `~/.trae-cn/skills/` 或 `<项目>/.trae/skills/` | `supported_os` |
-| Claude Code | `~/.claude/skills/` 或 `<项目>/.claude/skills/` | `allowed-tools` 可选 |
-| Codex | `~/.agents/skills/` 或 `<项目>/.agents/skills/` | 无特殊，推荐 `agents/openai.yaml` |
-| WorkBuddy | `~/.workbuddy/skills/` 或 `<项目>/.workbuddy/skills/` | `allowed-tools`、`metadata` |
-| OpenCode | `~/.config/opencode/skills/` 或 `<项目>/.opencode/skills/` | `compatibility`；也可直接复用 Claude 兼容路径 |
+远程图片下载后也会校验真实文件头。HTML、JSON 或无法识别的二进制内容不会继续发送给视觉 API。
 
-## 打包发布
+### 远程 URL
 
-仓库根目录的 `build-packages.ps1` 可一键生成 6 个独立 zip 包：
+远程图片仅允许 HTTPS。下载器会：
+
+- 拒绝回环、私有、链路本地、未指定、组播和保留地址；
+- 对域名的 DNS 解析结果进行校验；
+- 禁止自动跟随重定向，逐跳校验重定向目标；
+- 默认最多跟随 3 次重定向；
+- 默认最多下载 50MB。
+
+这套校验用于降低脚本被自动化调用时访问本机、内网或云元数据服务的 SSRF 风险。
+
+### 大小与编码
+
+当前版本不会对图片进行压缩或缩放，而是发送经过格式校验的原图。为避免 Base64 编码造成过大请求：
+
+- 单张本地图片默认不超过 10MB；
+- 最终 API 请求体默认不超过 20MB；
+- 超出限制会在本地报错，不会发送请求。
+
+### 隐私
+
+图片内容会被编码后发送到配置的视觉模型服务。请勿上传包含密码、Token、个人身份信息或其他敏感内容的图片。
+
+## Release 包
+
+使用根目录的打包脚本生成六个工具包：
 
 ```powershell
-# 在仓库根目录执行
-.\build-packages.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build-packages.ps1
 ```
 
-生成的包在 `dist/` 目录下：
+生成文件：
 
-```
+```text
 dist/
 ├── see-glm-zcode.zip
 ├── see-glm-trae.zip
@@ -219,91 +192,45 @@ dist/
 └── see-glm-opencode.zip
 ```
 
-每个包内含该工具专用的 `SKILL.md` + 共用 `scripts/` + `LICENSE`，解压即用。
+每个 ZIP 包含对应的 `SKILL.md`、公共 `scripts/` 和 `LICENSE`。Codex 与 zcode 包还包含 `agents/openai.yaml`。
 
-## 注意事项
+## 开发与验证
 
-- 本地图片会以 base64 发送到智谱云端，单张原图默认限制为 10MB，API 请求体默认限制为 20MB；请勿分析敏感图片
-- 免费/付费额度由智谱账号决定，多图并行模式会同时消耗多份额度
-- 需要 Python 3.6+（仅标准库）
-
-## License
-
-[MIT](./LICENSE)
-
----
-
-<a id="english"></a>
-# see-glm — Vision Bridge for AI to See Images
-
-Provides image understanding for non-multimodal models (e.g. text-only LLMs, coding assistants): calls the **GLM-4.1V-Thinking-Flash** vision model and brings the analysis result back to the current session. Zero third-party dependencies, pure Python standard library, cross-platform.
-
-## Why need it?
-
-Many AI coding assistants / CLIs use models that don't support image input (screenshots, error images, UI images — all invisible). see-glm provides a simple bridging path:
-
-```
-Non-vision model
-  │ sees image path, calls script
-  ▼
-see.py ──base64 original──▶ GLM-4.1V API ──▶ vision result
-  ◀─────────────────────────────────┘
-  result written to Markdown, model reads it
-```
-
-## Features
-
-- 🖼️ **Zero dependencies**: Python 3 standard library only, clone and run, no pip install
-- 🌍 **Cross-platform**: Windows / macOS / Linux
-- 📦 **Multi-format**: PNG / JPG / JPEG / GIF / WebP / BMP, local files and HTTPS URLs
-- ⚡ **Three modes**: single image, parallel multi-image (adjustable concurrency), joint multi-image (compare in one context)
-- 🔑 **Secure**: API Key stored in user-private directory, never in code or repo; auto 600 perms on Unix
-- 🔧 **Configurable**: model name and Base URL overridable, compatible with OpenAI-style endpoints
-- 🎯 **Multi-tool adapter**: one set of scripts supports zcode / Trae / Claude Code / Codex / WorkBuddy / OpenCode
-
-## Quick Start
-
-### Option 1: Download Release (recommended)
-
-Download the zip for your tool from [Releases](https://github.com/w-zjj/see-glm/releases) and extract to that tool's skill directory.
-
-| Tool | Download | Extract to |
-|------|----------|-----------|
-| zcode | `see-glm-zcode.zip` | `~/.zcode/skills/see-glm/` |
-| Trae | `see-glm-trae.zip` | `~/.trae-cn/skills/see-glm/` (user) or `<project>/.trae/skills/see-glm/` (project) |
-| Claude Code | `see-glm-claude.zip` | `~/.claude/skills/see-glm/` (personal) or `<project>/.claude/skills/see-glm/` (project) |
-| Codex | `see-glm-codex.zip` | `~/.agents/skills/see-glm/` (user) or `<project>/.agents/skills/see-glm/` (project) |
-| WorkBuddy | `see-glm-workbuddy.zip` | `~/.workbuddy/skills/see-glm/` (user) or `<project>/.workbuddy/skills/see-glm/` (project) |
-| OpenCode | `see-glm-opencode.zip` | `~/.config/opencode/skills/see-glm/` (user) or `<project>/.opencode/skills/see-glm/` (project) |
-
-### Option 2: Clone from source
+运行测试：
 
 ```bash
-git clone https://github.com/w-zjj/see-glm.git
-cd see-glm
+python -m pytest -q
 ```
 
-The `adapters/` directory contains tool-specific SKILL.md files. Copy the one you need along with `scripts/` to your tool's skill directory.
-
-### Configure API Key
+运行编译检查：
 
 ```bash
-python3 scripts/onboard.py
-# or: python3 scripts/see.py --onboard
-# check status: python3 scripts/onboard.py --status
+python -m compileall -q scripts tests
 ```
 
-On Windows, use `python` instead of `python3` if needed.
+项目测试不需要真实 API Key，也不会调用真实视觉 API。
 
-### Analyze images
+## 项目结构
 
-```bash
-python3 scripts/see.py screenshot.png
-python3 scripts/see.py error.png --task "Extract the error message"
-python3 scripts/see.py a.png b.png c.png
-python3 scripts/see.py --together before.png after.png --task "Compare differences"
-python3 scripts/see.py https://example.com/photo.jpg
-python3 scripts/see.py image.png -o result.md
+```text
+see-glm/
+├── scripts/
+│   ├── see.py
+│   ├── onboard.py
+│   ├── parse_media.py
+│   └── see.sh
+├── adapters/
+│   ├── zcode/SKILL.md
+│   ├── trae/SKILL.md
+│   ├── claude/SKILL.md
+│   ├── codex/SKILL.md
+│   ├── workbuddy/SKILL.md
+│   └── opencode/SKILL.md
+├── agents/openai.yaml
+├── build-packages.ps1
+├── tests/test_see.py
+├── LICENSE
+└── README.md
 ```
 
 ## License
