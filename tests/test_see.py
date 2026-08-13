@@ -3,6 +3,7 @@ import base64
 import io
 import json
 import sys
+import socket
 from pathlib import Path
 from urllib.error import HTTPError
 
@@ -71,16 +72,20 @@ def test_validate_file_url():
 
 # ---- download_url ----
 class _FakeResp:
-    def __init__(self, data, headers):
+    def __init__(self, data, headers, status=200):
         self._data = data
         self._pos = 0
         self.headers = headers
+        self.status = status
 
     def __enter__(self):
         return self
 
     def __exit__(self, *exc):
         return False
+
+    def getcode(self):
+        return self.status
 
     def read(self, n=-1):
         if n < 0 or n is None:
@@ -95,7 +100,12 @@ class _FakeResp:
 def test_download_url_normal(tmp_path, monkeypatch, capsys):
     payload = b"\x89PNG fake"
     fake = lambda *a, **k: _FakeResp(payload, {"Content-Type": "image/png"})
-    monkeypatch.setattr(see.urllib.request, "urlopen", fake)
+    monkeypatch.setattr(see, "_open_download_url", fake)
+    monkeypatch.setattr(
+        see.socket,
+        "getaddrinfo",
+        lambda *a, **k: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))],
+    )
     path = see.download_url("https://example.com/a.png")
     try:
         assert Path(path).read_bytes() == payload
@@ -107,7 +117,12 @@ def test_download_url_normal(tmp_path, monkeypatch, capsys):
 def test_download_url_size_limit(monkeypatch):
     payload = b"x" * 300
     fake = lambda *a, **k: _FakeResp(payload, {"Content-Type": "image/png"})
-    monkeypatch.setattr(see.urllib.request, "urlopen", fake)
+    monkeypatch.setattr(see, "_open_download_url", fake)
+    monkeypatch.setattr(
+        see.socket,
+        "getaddrinfo",
+        lambda *a, **k: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))],
+    )
     with pytest.raises(ValueError, match="大小上限"):
         see.download_url("https://example.com/a.png", max_bytes=200)
 
@@ -115,13 +130,103 @@ def test_download_url_size_limit(monkeypatch):
 def test_download_url_warns_on_non_image(monkeypatch, capsys):
     payload = b"<html>"
     fake = lambda *a, **k: _FakeResp(payload, {"Content-Type": "text/html"})
-    monkeypatch.setattr(see.urllib.request, "urlopen", fake)
+    monkeypatch.setattr(see, "_open_download_url", fake)
+    monkeypatch.setattr(
+        see.socket,
+        "getaddrinfo",
+        lambda *a, **k: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))],
+    )
     path = see.download_url("https://example.com/x")
     try:
         assert Path(path).read_bytes() == payload
     finally:
         Path(path).unlink(missing_ok=True)
     assert "警告" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://example.com/a.png",
+        "https://localhost/a.png",
+        "https://127.0.0.1/a.png",
+        "https://[::1]/a.png",
+    ],
+)
+def test_download_url_rejects_unsafe_urls(url, monkeypatch):
+    monkeypatch.setattr(
+        see.socket,
+        "getaddrinfo",
+        lambda *a, **k: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 443))],
+    )
+    with pytest.raises(ValueError, match="(HTTPS|受限网络地址)"):
+        see.download_url(url)
+
+
+def test_download_url_rejects_private_dns_result(monkeypatch):
+    monkeypatch.setattr(
+        see.socket,
+        "getaddrinfo",
+        lambda *a, **k: [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.0.7", 443))
+        ],
+    )
+    with pytest.raises(ValueError, match="受限网络地址"):
+        see.download_url("https://public.example/a.png")
+
+
+def test_download_url_validates_redirect_target(monkeypatch):
+    calls = []
+
+    def fake_open(request, timeout):
+        calls.append(request.full_url)
+        if len(calls) == 1:
+            return _FakeResp(
+                b"", {"Location": "https://127.0.0.1/secret"}, status=302
+            )
+        return _FakeResp(b"\x89PNG", {"Content-Type": "image/png"})
+
+    def fake_resolve(host, port, *args, **kwargs):
+        address = "93.184.216.34" if host == "public.example" else "127.0.0.1"
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (address, port))]
+
+    monkeypatch.setattr(see, "_open_download_url", fake_open)
+    monkeypatch.setattr(see.socket, "getaddrinfo", fake_resolve)
+    with pytest.raises(ValueError, match="受限网络地址"):
+        see.download_url("https://public.example/a.png")
+    assert calls == ["https://public.example/a.png"]
+
+
+def test_download_url_limits_redirects(monkeypatch):
+    monkeypatch.setattr(
+        see.socket,
+        "getaddrinfo",
+        lambda *a, **k: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))],
+    )
+    monkeypatch.setattr(
+        see,
+        "_open_download_url",
+        lambda *a, **k: _FakeResp(
+            b"", {"Location": "https://public.example/a.png"}, status=302
+        ),
+    )
+    with pytest.raises(ValueError, match="重定向次数超过上限"):
+        see.download_url("https://public.example/a.png", max_redirects=2)
+
+
+def test_download_url_preserves_non_redirect_http_errors(monkeypatch):
+    monkeypatch.setattr(
+        see.socket,
+        "getaddrinfo",
+        lambda *a, **k: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))],
+    )
+
+    def boom(*a, **k):
+        raise HTTPError("https://public.example/a.png", 404, "Not Found", {}, io.BytesIO())
+
+    monkeypatch.setattr(see, "_open_download_url", boom)
+    with pytest.raises(HTTPError):
+        see.download_url("https://public.example/a.png")
 
 
 # ---- call_glm_api ----

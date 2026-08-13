@@ -20,9 +20,12 @@ import hashlib
 import hmac
 import argparse
 import subprocess
+import socket
 import tempfile
+import ipaddress
 import urllib.request
 import urllib.error
+import urllib.parse
 import concurrent.futures
 from pathlib import Path
 from datetime import datetime
@@ -39,6 +42,7 @@ MIME_MAP = {
 DEFAULT_MAX_TOKENS = 8192
 # 下载图片的大小上限（50MB），防止意外下载超大文件
 DEFAULT_MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024
+DEFAULT_MAX_REDIRECTS = 3
 # GLM thinking 模型回复中可能出现的内置特殊 token
 THINKING_TOKEN_PATTERN = re.compile(
     r"<\|(?:begin_of_box|end_of_box|thought|endofthought)\|>"
@@ -144,27 +148,126 @@ def validate_file(filepath):
     return str(p.resolve()), False
 
 
-def download_url(url, max_bytes=DEFAULT_MAX_DOWNLOAD_BYTES):
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Return redirect responses so callers can validate every target."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+    def http_error_301(self, req, fp, code, msg, headers):
+        return fp
+
+    http_error_302 = http_error_301
+    http_error_303 = http_error_301
+    http_error_307 = http_error_301
+    http_error_308 = http_error_301
+
+
+def _validate_public_https_url(url):
+    """Reject non-HTTPS and targets resolving to local or reserved addresses."""
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme.lower() != "https":
+        raise ValueError(f"远程图片仅允许使用 HTTPS URL: {url}")
+    if not parsed.hostname:
+        raise ValueError(f"URL 缺少主机名: {url}")
+    try:
+        port = parsed.port or 443
+    except ValueError as e:
+        raise ValueError(f"URL 端口无效: {url}") from e
+
+    try:
+        addresses = socket.getaddrinfo(
+            parsed.hostname, port, type=socket.SOCK_STREAM
+        )
+    except socket.gaierror as e:
+        raise ValueError(f"无法解析远程图片主机名 {parsed.hostname}: {e}") from e
+    if not addresses:
+        raise ValueError(f"远程图片主机名未解析出地址: {parsed.hostname}")
+
+    for address in addresses:
+        ip_text = address[4][0]
+        try:
+            ip = ipaddress.ip_address(ip_text)
+        except ValueError as e:
+            raise ValueError(f"远程图片主机名解析出无效地址: {ip_text}") from e
+        if (
+            ip.is_loopback
+            or ip.is_private
+            or ip.is_link_local
+            or ip.is_unspecified
+            or ip.is_multicast
+            or ip.is_reserved
+        ):
+            raise ValueError(
+                f"远程图片地址解析到受限网络地址，已拒绝: {parsed.hostname} ({ip})"
+            )
+
+
+def _open_download_url(request, timeout):
+    opener = urllib.request.build_opener(_NoRedirectHandler())
+    return opener.open(request, timeout=timeout)
+
+
+def download_url(
+    url,
+    max_bytes=DEFAULT_MAX_DOWNLOAD_BYTES,
+    max_redirects=DEFAULT_MAX_REDIRECTS,
+):
     """下载 URL 到临时文件，返回路径
 
-    防护：流式读取并限制大小上限；Content-Type 非图片时给出警告。
+    防护：仅允许 HTTPS；校验每一跳解析出的地址；限制重定向和下载大小。
     """
-    req = urllib.request.Request(url, headers={"User-Agent": "see-glm/1.0"})
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        ctype = resp.headers.get("Content-Type", "")
-        if ctype and not ctype.split(";")[0].strip().lower().startswith("image/"):
-            print(f"警告: {url} 的 Content-Type 为 {ctype}，可能不是图片", file=sys.stderr)
-        data = b""
-        while True:
-            chunk = resp.read(64 * 1024)
-            if not chunk:
-                break
-            data += chunk
-            if len(data) > max_bytes:
-                raise ValueError(
-                    f"下载超过大小上限 {max_bytes // (1024 * 1024)}MB: {url}"
+    current_url = url
+    for redirect_count in range(max_redirects + 1):
+        _validate_public_https_url(current_url)
+        req = urllib.request.Request(
+            current_url, headers={"User-Agent": "see-glm/1.0"}
+        )
+        try:
+            response = _open_download_url(req, timeout=60)
+        except urllib.error.HTTPError as e:
+            if e.code not in (301, 302, 303, 307, 308):
+                raise
+            response = e
+
+        with response as resp:
+            status = resp.getcode()
+            if status in (301, 302, 303, 307, 308):
+                location = resp.headers.get("Location")
+                if not location:
+                    raise ValueError(f"远程图片重定向缺少目标地址: {current_url}")
+                if redirect_count >= max_redirects:
+                    raise ValueError(
+                        f"远程图片重定向次数超过上限 {max_redirects}: {url}"
+                    )
+                current_url = urllib.parse.urljoin(current_url, location)
+                continue
+
+            ctype = resp.headers.get("Content-Type", "")
+            if ctype and not ctype.split(";")[0].strip().lower().startswith("image/"):
+                print(
+                    f"警告: {current_url} 的 Content-Type 为 {ctype}，可能不是图片",
+                    file=sys.stderr,
                 )
-    suffix = "." + (url.split("?")[0].split(".")[-1] if "." in url.split("?")[0] else "png")
+            data = bytearray()
+            while True:
+                chunk = resp.read(64 * 1024)
+                if not chunk:
+                    break
+                data.extend(chunk)
+                if len(data) > max_bytes:
+                    raise ValueError(
+                        f"下载超过大小上限 {max_bytes // (1024 * 1024)}MB: {current_url}"
+                    )
+            final_url = current_url
+            break
+    else:
+        raise ValueError(f"远程图片重定向次数超过上限 {max_redirects}: {url}")
+
+    path_without_query = urllib.parse.urlparse(final_url).path
+    suffix = "." + (
+        path_without_query.split(".")[-1] if "." in path_without_query else "png"
+    )
     if suffix.lstrip(".") not in SUPPORTED_EXT:
         suffix = ".png"
     tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
