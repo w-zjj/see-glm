@@ -8,7 +8,7 @@ import os
 import sys
 from pathlib import Path
 
-DEFAULT_MODEL = "GLM-4.1V-Thinking-Flash"
+DEFAULT_MODEL = "glm-4.6v-flash"
 DEFAULT_BASE_URL = "https://open.bigmodel.cn/api/paas/v4"
 
 
@@ -123,6 +123,7 @@ def run_onboard():
         "GLM_API_KEY": api_key,
         "GLM_BASE_URL": base_url,
         "GLM_MODEL": model,
+        "GLM_THINKING": "disabled",
     }
     save_config(config)
     print("\n配置完成！现在可以使用 see.py 查看图片了。")

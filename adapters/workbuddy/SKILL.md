@@ -1,6 +1,6 @@
 ---
 name: see-glm
-description: 通过 GLM-4.1V 视觉模型查看和分析图片，为不支持多模态的模型提供视觉桥接。当用户要求查看/识别/分析/描述图片、从截图提取文字、比较图片差异、解读图表，或对话中出现图片文件路径（.png/.jpg/.jpeg/.gif/.webp/.bmp）时触发。
+description: 通过 GLM-4.6V 视觉模型查看和分析图片，为不支持多模态的模型提供视觉桥接。当用户要求查看/识别/分析/描述图片、从截图提取文字、比较图片差异、解读图表，或对话中出现图片文件路径（.png/.jpg/.jpeg/.gif/.webp/.bmp）时触发。
 license: MIT
 allowed-tools: Read, Write, Bash
 metadata:
@@ -15,7 +15,7 @@ metadata:
 
 # see-glm — GLM 视觉桥接
 
-让不支持多模态的模型通过 GLM-4.1V-Thinking-Flash 查看和分析图片。
+让不支持多模态的模型通过 GLM-4.6V-Flash 查看和分析图片。
 零第三方依赖，仅用 Python 3 标准库，跨平台。
 
 ## 触发条件
@@ -59,7 +59,7 @@ python3 scripts/see.py /path/to/image.png -o /path/to/result.md
 | `--task "问题"` | 可选，自定义提问，原样发送给视觉模型 |
 | `--together` | 可选，多图联合理解模式，所有图进入同一次请求 |
 | `--jobs N` | 可选，并行模式下并发数，默认 3 |
-| `--model NAME` | 可选，临时覆盖模型（默认 GLM-4.1V-Thinking-Flash） |
+| `--model NAME` | 可选，临时覆盖模型（默认 glm-4.6v-flash） |
 | `-o FILE` | 可选，指定结果输出文件路径 |
 | `--onboard` | 可选，快捷启动配置流程 |
 

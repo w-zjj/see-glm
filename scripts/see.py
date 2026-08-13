@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-see-glm — 通过 GLM-4.1V-Thinking-Flash 让 AI 查看图片
+see-glm — 通过 GLM-4.6V-Flash 让 AI 查看图片
 跨平台主入口 (Windows / macOS / Linux)
 用法:
   python3 see.py image.png
@@ -8,7 +8,7 @@ see-glm — 通过 GLM-4.1V-Thinking-Flash 让 AI 查看图片
   python3 see.py a.png b.png c.png
   python3 see.py --together a.png b.png --task "比较差异"
   python3 see.py image.png -o result.md
-  python3 see.py image.png --model GLM-4.1V-Thinking-Flash
+  python3 see.py image.png --model glm-4.6v-flash
 """
 import os
 import re
@@ -31,7 +31,7 @@ from pathlib import Path
 from datetime import datetime
 
 # ---- 常量 ----
-DEFAULT_MODEL = "GLM-4.1V-Thinking-Flash"
+DEFAULT_MODEL = "glm-4.6v-flash"
 DEFAULT_BASE_URL = "https://open.bigmodel.cn/api/paas/v4"
 DEFAULT_JOBS = 3
 SUPPORTED_EXT = {"png", "jpg", "jpeg", "gif", "webp", "bmp"}
@@ -88,7 +88,13 @@ def load_config():
                 key, _, value = line.partition("=")
                 config[key.strip()] = value.strip()
     # 3. 环境变量优先级最高（覆盖已有值）
-    for key in ("GLM_API_KEY", "GLM_BASE_URL", "GLM_MODEL", "GLM_MAX_TOKENS"):
+    for key in (
+        "GLM_API_KEY",
+        "GLM_BASE_URL",
+        "GLM_MODEL",
+        "GLM_MAX_TOKENS",
+        "GLM_THINKING",
+    ):
         env_val = os.environ.get(key, "")
         if env_val:
             config[key] = env_val
@@ -335,18 +341,22 @@ def call_glm_api(
     jwt_token,
     max_tokens=DEFAULT_MAX_TOKENS,
     max_request_bytes=DEFAULT_MAX_REQUEST_BYTES,
+    thinking="disabled",
 ):
     """
     调用智谱 GLM API
     content_list: list of content items (text + image_url)
     返回: 模型回复文本（已清理特殊 token）
     """
-    body = json.dumps({
+    body_data = {
         "model": model,
         "messages": [{"role": "user", "content": content_list}],
         "temperature": 0.1,
         "max_tokens": max_tokens
-    }, ensure_ascii=False).encode("utf-8")
+    }
+    if thinking in {"enabled", "disabled"}:
+        body_data["thinking"] = {"type": thinking}
+    body = json.dumps(body_data, ensure_ascii=False).encode("utf-8")
     if len(body) > max_request_bytes:
         raise ValueError(
             f"API 请求体超过大小上限 {max_request_bytes // (1024 * 1024)}MB: "
@@ -459,7 +469,7 @@ def fatal(message):
 # ---- 主函数 ----
 def main():
     parser = argparse.ArgumentParser(
-        description="see-glm — 通过 GLM-4.1V-Thinking-Flash 查看图片",
+        description="see-glm — 通过 GLM-4.6V-Flash 查看图片",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
@@ -497,6 +507,7 @@ def main():
         max_tokens = int(config.get("GLM_MAX_TOKENS") or DEFAULT_MAX_TOKENS)
     except (TypeError, ValueError):
         max_tokens = DEFAULT_MAX_TOKENS
+    thinking = (config.get("GLM_THINKING") or "disabled").strip().lower()
 
     if not api_key:
         print("ERROR: 未配置 API Key", file=sys.stderr)
@@ -545,7 +556,16 @@ def main():
             paths = [lf[1] for lf in local_files]
             content = build_together_content(paths, question)
             try:
-                results.append(call_glm_api(content, model, base_url, jwt_token, max_tokens=max_tokens))
+                results.append(
+                    call_glm_api(
+                        content,
+                        model,
+                        base_url,
+                        jwt_token,
+                        max_tokens=max_tokens,
+                        thinking=thinking,
+                    )
+                )
             except Exception as e:
                 fatal(f"[分析失败] {local_files[0][0]}: {e}")
         elif len(local_files) == 1:
@@ -553,7 +573,16 @@ def main():
             mode = "单图分析"
             content = build_single_content(local_files[0][1], question)
             try:
-                results.append(call_glm_api(content, model, base_url, jwt_token, max_tokens=max_tokens))
+                results.append(
+                    call_glm_api(
+                        content,
+                        model,
+                        base_url,
+                        jwt_token,
+                        max_tokens=max_tokens,
+                        thinking=thinking,
+                    )
+                )
             except Exception as e:
                 fatal(f"[分析失败] {local_files[0][0]}: {e}")
         else:
@@ -563,7 +592,14 @@ def main():
                 orig, local_path, _ = item
                 content = build_single_content(local_path, question)
                 try:
-                    return call_glm_api(content, model, base_url, jwt_token, max_tokens=max_tokens)
+                    return call_glm_api(
+                        content,
+                        model,
+                        base_url,
+                        jwt_token,
+                        max_tokens=max_tokens,
+                        thinking=thinking,
+                    )
                 except Exception as e:
                     return f"[分析失败] {orig}: {e}"
             # 每张图只提交一次；as_completed 不保序，用索引按输入顺序收集结果

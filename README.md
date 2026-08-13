@@ -123,8 +123,9 @@ output_path=/absolute/path/result.md
 |---|---|---|
 | `GLM_API_KEY` | 无 | 智谱 API Key |
 | `GLM_BASE_URL` | `https://open.bigmodel.cn/api/paas/v4` | API 基础地址 |
-| `GLM_MODEL` | `GLM-4.1V-Thinking-Flash` | 视觉模型名称 |
+| `GLM_MODEL` | `glm-4.6v-flash` | 视觉模型名称 |
 | `GLM_MAX_TOKENS` | `8192` | 模型回复最大 token 数 |
+| GLM_THINKING | disabled | 是否启用思考模式，可选 enabled / disabled |
 
 兼容 OpenAI 风格服务时，可覆盖 API 地址、模型和 Bearer Token：
 
@@ -132,6 +133,7 @@ output_path=/absolute/path/result.md
 export GLM_BASE_URL="https://your-endpoint/v4"
 export GLM_MODEL="your-vision-model"
 export GLM_API_KEY="your-token"
+export GLM_THINKING="disabled"
 ```
 
 智谱点号格式 API Key 会按智谱 JWT 规则生成 Token；不含点号的 Key 会直接作为 Bearer Token 使用。

@@ -1,13 +1,13 @@
 ---
 name: see-glm
-description: Views and analyzes images via the GLM-4.1V vision model, bridging vision capability to non-multimodal models. Use when the user asks to view/identify/analyze/describe images, extract text from screenshots, compare images, interpret charts/diagrams, or when image file paths (.png/.jpg/.jpeg/.gif/.webp/.bmp) appear in context.
+description: Views and analyzes images via the GLM-4.6V vision model, bridging vision capability to non-multimodal models. Use when the user asks to view/identify/analyze/describe images, extract text from screenshots, compare images, interpret charts/diagrams, or when image file paths (.png/.jpg/.jpeg/.gif/.webp/.bmp) appear in context.
 license: MIT
 allowed-tools: Read, Write, Bash
 ---
 
 # see-glm — GLM Vision Bridge
 
-Lets non-multimodal models view and analyze images via GLM-4.1V-Thinking-Flash.
+Lets non-multimodal models view and analyze images via GLM-4.6V-Flash.
 Zero third-party dependencies, Python 3 standard library only, cross-platform.
 
 ## When to Use
@@ -49,7 +49,7 @@ python3 scripts/see.py /path/to/image.png -o /path/to/result.md
 | `--task "question"` | Optional, custom question sent verbatim to the vision model |
 | `--together` | Optional, joint multi-image mode (all images in one request) |
 | `--jobs N` | Optional, parallel concurrency (default 3) |
-| `--model NAME` | Optional, override model (default GLM-4.1V-Thinking-Flash) |
+| `--model NAME` | Optional, override model (default glm-4.6v-flash) |
 | `-o FILE` | Optional, output file path |
 | `--onboard` | Optional, launch interactive config |
 

@@ -2,7 +2,7 @@
 # 适配 Codex / zcode Agent 框架（遵循 agentskills.io 开放标准）
 # 跨平台: Windows / macOS / Linux
 name: see-glm
-description: 通过 GLM-4.1V-Thinking-Flash 查看和分析图片 (跨平台)
+description: 通过 GLM-4.6V-Flash 查看和分析图片 (跨平台)
 
 # 触发关键词
 triggers:
@@ -38,7 +38,7 @@ scripts:
 
 # 默认配置
 defaults:
-  model: GLM-4.1V-Thinking-Flash
+  model: glm-4.6v-flash
   jobs: 3
   temperature: 0.1
   max_tokens: 8192

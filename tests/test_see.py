@@ -334,3 +334,22 @@ def test_load_config_priority(tmp_path, monkeypatch):
     cfg = see.load_config()
     assert cfg["GLM_API_KEY"] == "from-env"
     assert cfg["GLM_MODEL"] == "m1"
+
+
+def test_default_model_is_glm_46v_flash():
+    assert see.DEFAULT_MODEL == "glm-4.6v-flash"
+
+
+def test_call_glm_api_includes_thinking_mode(monkeypatch):
+    response_body = {"choices": [{"message": {"content": "ok"}}]}
+    captured = {}
+
+    def fake_urlopen(request, *args, **kwargs):
+        captured["body"] = json.loads(request.data.decode("utf-8"))
+        return _FakeResp(json.dumps(response_body).encode(), {})
+
+    monkeypatch.setattr(see.urllib.request, "urlopen", fake_urlopen)
+    assert see.call_glm_api(
+        [], "glm-4.6v-flash", "https://x", "token", thinking="enabled"
+    ) == "ok"
+    assert captured["body"]["thinking"] == {"type": "enabled"}
