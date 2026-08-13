@@ -65,6 +65,39 @@ def test_validate_file_unsupported(tmp_path):
         see.validate_file(str(f))
 
 
+@pytest.mark.parametrize(
+    ("filename", "payload"),
+    [
+        ("a.png", b"\x89PNG\r\n\x1a\n"),
+        ("a.jpg", b"\xff\xd8\xff\xe0"),
+        ("a.jpeg", b"\xff\xd8\xff\xe0"),
+        ("a.gif", b"GIF89a"),
+        ("a.webp", b"RIFFxxxxWEBP"),
+        ("a.bmp", b"BM\x00\x00"),
+    ],
+)
+def test_validate_file_accepts_supported_real_formats(tmp_path, filename, payload):
+    path = tmp_path / filename
+    path.write_bytes(payload)
+    resolved, is_net = see.validate_file(str(path))
+    assert Path(resolved) == path.resolve()
+    assert not is_net
+
+
+def test_validate_file_rejects_fake_extension(tmp_path):
+    path = tmp_path / "fake.png"
+    path.write_bytes(b"<html>not an image</html>")
+    with pytest.raises(ValueError, match="无法识别图片真实格式"):
+        see.validate_file(str(path))
+
+
+def test_validate_file_rejects_extension_mismatch(tmp_path):
+    path = tmp_path / "fake.png"
+    path.write_bytes(b"GIF89a")
+    with pytest.raises(ValueError, match="真实格式与扩展名不一致"):
+        see.validate_file(str(path))
+
+
 def test_validate_file_url():
     path, is_net = see.validate_file("https://example.com/x.png")
     assert is_net and path == "https://example.com/x.png"
@@ -98,7 +131,7 @@ class _FakeResp:
 
 
 def test_download_url_normal(tmp_path, monkeypatch, capsys):
-    payload = b"\x89PNG fake"
+    payload = b"\x89PNG\r\n\x1a\nfake"
     fake = lambda *a, **k: _FakeResp(payload, {"Content-Type": "image/png"})
     monkeypatch.setattr(see, "_open_download_url", fake)
     monkeypatch.setattr(
@@ -136,11 +169,8 @@ def test_download_url_warns_on_non_image(monkeypatch, capsys):
         "getaddrinfo",
         lambda *a, **k: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))],
     )
-    path = see.download_url("https://example.com/x")
-    try:
-        assert Path(path).read_bytes() == payload
-    finally:
-        Path(path).unlink(missing_ok=True)
+    with pytest.raises(ValueError, match="无法识别远程图片真实格式"):
+        see.download_url("https://example.com/x")
     assert "警告" in capsys.readouterr().err
 
 

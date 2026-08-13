@@ -39,6 +39,7 @@ MIME_MAP = {
     "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
     "gif": "image/gif", "webp": "image/webp", "bmp": "image/bmp",
 }
+FORMAT_ALIASES = {"jpg": {"jpg", "jpeg"}, "jpeg": {"jpg", "jpeg"}}
 DEFAULT_MAX_TOKENS = 8192
 # 下载图片的大小上限（50MB），防止意外下载超大文件
 DEFAULT_MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024
@@ -135,6 +136,37 @@ def get_mime(filepath):
     return MIME_MAP.get(ext, "image/png")
 
 
+def detect_image_format(data):
+    """根据文件头识别支持的图片格式，无法识别时返回 None。"""
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if data.startswith((b"\xff\xd8\xff",)):
+        return "jpeg"
+    if data.startswith((b"GIF87a", b"GIF89a")):
+        return "gif"
+    if data.startswith(b"BM"):
+        return "bmp"
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "webp"
+    return None
+
+
+def validate_image_data(data, filepath):
+    """校验真实图片格式，并确保它与本地文件扩展名一致。"""
+    detected_ext = detect_image_format(data)
+    if detected_ext is None:
+        raise ValueError(f"无法识别图片真实格式: {filepath}")
+
+    declared_ext = get_ext(filepath)
+    accepted_exts = FORMAT_ALIASES.get(declared_ext, {declared_ext})
+    if detected_ext not in accepted_exts:
+        raise ValueError(
+            f"图片真实格式与扩展名不一致: {filepath} "
+            f"(扩展名 .{declared_ext}，实际格式 {detected_ext})"
+        )
+    return detected_ext
+
+
 def validate_file(filepath):
     """校验文件，返回 (abs_path_or_url, is_url) 或抛出异常"""
     if is_url(filepath):
@@ -145,6 +177,8 @@ def validate_file(filepath):
     ext = get_ext(filepath)
     if ext not in SUPPORTED_EXT:
         raise ValueError(f"不支持的格式 .{ext}，仅支持: {', '.join(sorted(SUPPORTED_EXT))}")
+    with p.open("rb") as f:
+        validate_image_data(f.read(64), filepath)
     return str(p.resolve()), False
 
 
@@ -259,17 +293,14 @@ def download_url(
                     raise ValueError(
                         f"下载超过大小上限 {max_bytes // (1024 * 1024)}MB: {current_url}"
                     )
-            final_url = current_url
+            detected_ext = detect_image_format(data)
+            if detected_ext is None:
+                raise ValueError(f"无法识别远程图片真实格式: {current_url}")
             break
     else:
         raise ValueError(f"远程图片重定向次数超过上限 {max_redirects}: {url}")
 
-    path_without_query = urllib.parse.urlparse(final_url).path
-    suffix = "." + (
-        path_without_query.split(".")[-1] if "." in path_without_query else "png"
-    )
-    if suffix.lstrip(".") not in SUPPORTED_EXT:
-        suffix = ".png"
+    suffix = "." + detected_ext
     tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
     tmp.write(data)
     tmp.close()
