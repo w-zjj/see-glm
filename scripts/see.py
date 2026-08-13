@@ -41,6 +41,9 @@ MIME_MAP = {
 }
 FORMAT_ALIASES = {"jpg": {"jpg", "jpeg"}, "jpeg": {"jpg", "jpeg"}}
 DEFAULT_MAX_TOKENS = 8192
+# 单张图片和 API 请求体大小上限，避免原图 base64 后造成超大请求
+DEFAULT_MAX_IMAGE_BYTES = 10 * 1024 * 1024
+DEFAULT_MAX_REQUEST_BYTES = 20 * 1024 * 1024
 # 下载图片的大小上限（50MB），防止意外下载超大文件
 DEFAULT_MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024
 DEFAULT_MAX_REDIRECTS = 3
@@ -307,8 +310,14 @@ def download_url(
     return tmp.name
 
 
-def file_to_base64(filepath):
-    """文件转 base64，跨平台"""
+def file_to_base64(filepath, max_bytes=DEFAULT_MAX_IMAGE_BYTES):
+    """文件转 base64，并在读取前限制原图大小。"""
+    file_size = os.path.getsize(filepath)
+    if file_size > max_bytes:
+        raise ValueError(
+            f"图片超过大小上限 {max_bytes // (1024 * 1024)}MB: "
+            f"{filepath} ({file_size / (1024 * 1024):.2f}MB)"
+        )
     with open(filepath, "rb") as f:
         return base64.b64encode(f.read()).decode("utf-8")
 
@@ -319,7 +328,14 @@ def clean_content(text):
     return THINKING_TOKEN_PATTERN.sub("", text)
 
 
-def call_glm_api(content_list, model, base_url, jwt_token, max_tokens=DEFAULT_MAX_TOKENS):
+def call_glm_api(
+    content_list,
+    model,
+    base_url,
+    jwt_token,
+    max_tokens=DEFAULT_MAX_TOKENS,
+    max_request_bytes=DEFAULT_MAX_REQUEST_BYTES,
+):
     """
     调用智谱 GLM API
     content_list: list of content items (text + image_url)
@@ -331,6 +347,11 @@ def call_glm_api(content_list, model, base_url, jwt_token, max_tokens=DEFAULT_MA
         "temperature": 0.1,
         "max_tokens": max_tokens
     }, ensure_ascii=False).encode("utf-8")
+    if len(body) > max_request_bytes:
+        raise ValueError(
+            f"API 请求体超过大小上限 {max_request_bytes // (1024 * 1024)}MB: "
+            f"{len(body) / (1024 * 1024):.2f}MB"
+        )
     req = urllib.request.Request(
         f"{base_url}/chat/completions",
         data=body,

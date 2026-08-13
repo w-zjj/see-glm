@@ -288,6 +288,13 @@ def test_build_single_content_local(tmp_path):
     assert content[1]["text"] == "q"
 
 
+def test_file_to_base64_rejects_oversized_image(tmp_path):
+    f = tmp_path / "large.png"
+    f.write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * 100)
+    with pytest.raises(ValueError, match="图片超过大小上限"):
+        see.file_to_base64(str(f), max_bytes=50)
+
+
 def test_build_single_content_url():
     content = see.build_single_content("https://e.com/a.png", "q")
     assert content[0]["image_url"]["url"] == "https://e.com/a.png"
@@ -300,6 +307,18 @@ def test_build_together_content(tmp_path):
     assert content[0]["image_url"]["url"] == "https://e.com/b.jpg"
     assert content[1]["image_url"]["url"].startswith("data:image/png;base64,")
     assert content[2]["text"] == "diff"
+
+
+def test_call_glm_api_rejects_oversized_request(monkeypatch):
+    content = [{"type": "text", "text": "x" * 1000}]
+    with pytest.raises(ValueError, match="API 请求体超过大小上限"):
+        see.call_glm_api(
+            content,
+            "m",
+            "https://x",
+            "token",
+            max_request_bytes=100,
+        )
 
 
 # ---- load_config ----
