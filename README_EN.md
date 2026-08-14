@@ -2,174 +2,148 @@
 
 ![release](https://img.shields.io/github/v/release/w-zjj/see-glm?label=Latest&logo=github) ![license](https://img.shields.io/github/license/w-zjj/see-glm?logo=github) ![python](https://img.shields.io/badge/python-3.6%2B-blue?logo=python)
 
-> **Latest release: [v1.3.1](https://github.com/w-zjj/see-glm/releases/latest)** · The [Releases](https://github.com/w-zjj/see-glm/releases) tags are the source of truth; the `main` branch may lag behind the latest release.
+> **Latest release: [v1.3.1](https://github.com/w-zjj/see-glm/releases/latest)** · Release tags are the source of truth; the `main` branch may lag behind the latest release.
 
 中文文档：[README.md](./README.md)
 
-see-glm lets AI coding assistants without vision input view and analyze images via the Zhipu GLM-4.6V-Flash model, and writes the results to a Markdown file.
+see-glm lets AI coding assistants without vision input inspect images, extract text from screenshots, compare UI states, and save the result as Markdown through Zhipu GLM-4.6V-Flash.
 
-see-glm uses only the Python standard library — no third-party runtime dependencies — and runs on Windows, macOS, and Linux.
+It uses only the Python standard library, requires no third-party runtime packages, and supports Windows, macOS, and Linux. Skill packages are provided for zcode, Trae, Claude Code, Codex, DeepSeek Harness, WorkBuddy, and OpenCode.
 
-## Features
+## Capabilities
 
-- Supports PNG, JPG, JPEG, GIF, WebP, BMP
-- Supports both local images and remote HTTPS images
-- Supports single-image analysis, parallel multi-image analysis, and joint multi-image analysis
-- Supports custom questions, model, API base URL, and output path
-- Validates local images by real file headers instead of relying on extensions only
-- Validates remote images for HTTPS, DNS resolution results, redirect targets, and real image format
-- Automatic retry on transient API errors, honoring `Retry-After` and exponential backoff
-- Parallel mode keeps successful results and explicitly reports failures
-- Provides adapters for zcode, Trae, Claude Code, Codex, WorkBuddy, and OpenCode
+- Analyze PNG, JPG, JPEG, GIF, WebP, and BMP images
+- Read local images and remote HTTPS images
+- Analyze one image, process multiple images in parallel, or jointly compare images
+- Customize the prompt, model, API base URL, and output path
+- Validate the actual local image format instead of trusting the extension
+- Validate remote URLs, DNS results, redirect targets, and downloaded content
+- Retry transient network and API failures
+- Preserve successful results and identify failures in parallel mode
+
+## Requirements
+
+- Python 3.6 or later
+- A Zhipu API key, or an OpenAI-compatible vision model endpoint
+
+Commands below use `python`. Replace it with `python3` if that is the only available command.
 
 ## Quick Start
 
-### 1. Get the project
-
-Download the ZIP package for your target tool from [Releases](https://github.com/w-zjj/see-glm/releases).
-
-Alternatively, run from source:
+Run from source:
 
 ```bash
 git clone https://github.com/w-zjj/see-glm.git
 cd see-glm
+python scripts/onboard.py
+python scripts/see.py screenshot.png
 ```
 
-Requires Python 3.6 or later. Command examples use `python`; if your system only has `python3`, replace `python` with `python3` in the examples.
+You can also download the ZIP package for your target tool from [Releases](https://github.com/w-zjj/see-glm/releases).
 
-### 2. Configure the API Key
+On success, stdout contains only the result path:
 
-Launch interactive configuration:
+```text
+output_path=/absolute/path/see-glm-result.md
+```
+
+Open that Markdown file to read the model response.
+
+## Install as a Skill
+
+All platform packages use the same `scripts/`. Only the `SKILL.md` metadata and installation directory differ.
+
+| Platform | ZIP package | Recommended directory |
+|---|---|---|
+| zcode | `see-glm-zcode.zip` | `~/.zcode/skills/see-glm/` |
+| Trae | `see-glm-trae.zip` | `~/.trae-cn/skills/see-glm/` |
+| Claude Code | `see-glm-claude.zip` | `~/.claude/skills/see-glm/` |
+| Codex | `see-glm-codex.zip` | `~/.agents/skills/see-glm/` |
+| DeepSeek Harness CLI | `see-glm-deepseek-harness.zip` | `~/.dsh/skills/see-glm/` |
+| Dshdesk | `see-glm-deepseek-harness.zip` | `%APPDATA%\DeepSeekHarness\dsh-home\skills\see-glm\` |
+| WorkBuddy | `see-glm-workbuddy.zip` | `~/.workbuddy/skills/see-glm/` |
+| OpenCode | `see-glm-opencode.zip` | `~/.config/opencode/skills/see-glm/` |
+
+Extract the ZIP so the target directory directly contains these files, without an extra nested `see-glm` directory:
+
+```text
+see-glm/
+├── SKILL.md
+├── LICENSE
+└── scripts/
+    ├── see.py
+    ├── onboard.py
+    └── parse_media.py
+```
+
+Restart the coding assistant after installation so it rescans Skills.
+
+### DeepSeek Harness and Dshdesk
+
+[Dshdesk](https://github.com/w-zjj/dshdesk) packages the [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web UI as a desktop application. Both use `see-glm-deepseek-harness.zip`; Dshdesk does not require a separate adapter.
+
+The only relevant difference is the Skill root:
+
+- DeepSeek Harness CLI defaults to `~/.dsh/skills/see-glm/`
+- Project-level installation uses `<project-root>/.dsh/skills/see-glm/`
+- DeepSeek Harness can also discover `.agents/skills/see-glm/`
+- Dshdesk sets `DSH_HOME` to `%APPDATA%\DeepSeekHarness\dsh-home`, so its Skill belongs under `skills\see-glm` in that directory
+
+Install the Dshdesk package from Windows PowerShell:
+
+```powershell
+$dest = Join-Path $env:APPDATA "DeepSeekHarness\dsh-home\skills\see-glm"
+New-Item -ItemType Directory -Force -Path $dest | Out-Null
+Expand-Archive -Path ".\see-glm-deepseek-harness.zip" -DestinationPath $dest -Force
+```
+
+Dshdesk bundles the Node.js runtime required by Harness, but see-glm still requires `python` or `python3` on the system.
+
+## API Configuration
+
+Start interactive setup:
 
 ```bash
 python scripts/onboard.py
 ```
 
-You can also start it via the main script:
+You can also launch setup through the main script:
 
 ```bash
 python scripts/see.py --onboard
 ```
 
-Check current configuration status:
+Show the current configuration:
 
 ```bash
 python scripts/onboard.py --status
 ```
 
-Default config file location:
+Default configuration files:
 
 | Platform | Path |
 |---|---|
 | Windows | `%APPDATA%\see-glm\config.env` |
 | macOS / Linux | `~/.config/see-glm/config.env` |
 
-Use environment variables temporarily:
-
-Windows PowerShell:
-
-```powershell
-$env:GLM_API_KEY = "your-api-key"
-```
-
-macOS / Linux:
-
-```bash
-export GLM_API_KEY="your-api-key"
-```
-
-Never write the API Key into code, commit it to the repository, or log it.
-
-### 3. Analyze an image
-
-Single-image analysis:
-
-```bash
-python scripts/see.py screenshot.png
-```
-
-Specify a task:
-
-```bash
-python scripts/see.py error.png \
-  --task "Extract the error message in the image in full and explain possible causes"
-```
-
-Parallel multi-image analysis:
-
-```bash
-python scripts/see.py before.png after.png --jobs 3
-```
-
-Joint multi-image analysis:
-
-```bash
-python scripts/see.py --together before.png after.png \
-  --task "Compare the differences between the two images"
-```
-
-Analyze a remote image:
-
-```bash
-python scripts/see.py https://example.com/photo.jpg
-```
-
-Specify the output file:
-
-```bash
-python scripts/see.py screenshot.png --output result.md
-```
-
-On success, stdout contains only the result file path:
-
-```text
-output_path=/absolute/path/result.md
-```
-
-Read that Markdown file to get the model's analysis.
-
-## Command Options
-
-| Option | Description |
-|---|---|
-| `image-path/URL` | Required; one or more local image paths or HTTPS URLs |
-| `--task`, `-t` | Custom question |
-| `--together` | Put multiple images into a single API request for joint analysis |
-| `--jobs`, `-j` | Concurrency for parallel mode, range `1-64`, default `3` |
-| `--allow-partial` | Return exit code `0` even when some images fail in parallel mode |
-| `--model`, `-m` | Temporarily override the model name |
-| `--output`, `-o` | Specify the Markdown output path |
-| `--onboard` | Launch the interactive configuration flow |
-
-### Parallel failure policy
-
-Parallel multi-image mode writes results in input order:
-
-- Successful images get the model reply
-- Failed images get `[分析失败]` (analysis failed) and the error reason
-- Markdown is still generated by default, but the process returns exit code `2`
-- Use `--allow-partial` to treat partial success as success, returning exit code `0`
-
-## Configuration
-
-Configuration priority, from highest to lowest:
+Configuration precedence:
 
 1. Environment variables
-2. Project root `.env.local`
-3. User config file
+2. `.env.local` in the project root
+3. User configuration file
 
-Supported options:
+Supported settings:
 
-| Option | Default | Description |
+| Setting | Default | Description |
 |---|---|---|
-| `GLM_API_KEY` | none | Zhipu API Key |
+| `GLM_API_KEY` | None | Zhipu API key or compatible endpoint token |
 | `GLM_BASE_URL` | `https://open.bigmodel.cn/api/paas/v4` | API base URL |
 | `GLM_MODEL` | `glm-4.6v-flash` | Vision model name |
-| `GLM_MAX_TOKENS` | `8192` | Maximum tokens in model reply |
-| `GLM_MAX_RETRIES` | `3` | Max retries on transient errors, actual range `0-10` |
-| `GLM_THINKING` | `disabled` | Thinking mode, `enabled` or `disabled` |
+| `GLM_MAX_TOKENS` | `8192` | Maximum response tokens |
+| `GLM_MAX_RETRIES` | `3` | Maximum transient-error retries, clamped to `0-10` |
+| `GLM_THINKING` | `disabled` | Thinking mode: `enabled` or `disabled` |
 
-Config file example:
+Example:
 
 ```text
 GLM_API_KEY=your-api-key
@@ -180,17 +154,86 @@ GLM_MAX_RETRIES=3
 GLM_THINKING=disabled
 ```
 
-### API retry rules
+Temporary environment variable on Windows PowerShell:
 
-The following HTTP status codes trigger a retry:
+```powershell
+$env:GLM_API_KEY = "your-api-key"
+```
+
+On macOS or Linux:
+
+```bash
+export GLM_API_KEY="your-api-key"
+```
+
+Do not put API keys in source code, commits, or logs.
+
+## Usage
+
+Analyze one image:
+
+```bash
+python scripts/see.py screenshot.png
+```
+
+Provide a task:
+
+```bash
+python scripts/see.py error.png \
+  --task "Extract the complete error message and explain likely causes"
+```
+
+Analyze images in parallel:
+
+```bash
+python scripts/see.py page-1.png page-2.png page-3.png --jobs 3
+```
+
+Compare images jointly:
+
+```bash
+python scripts/see.py --together before.png after.png \
+  --task "Compare the layout and content differences"
+```
+
+Analyze a remote image:
+
+```bash
+python scripts/see.py https://example.com/photo.jpg
+```
+
+Choose an output path:
+
+```bash
+python scripts/see.py screenshot.png --output result.md
+```
+
+## Command Options
+
+| Option | Description |
+|---|---|
+| `image-path/URL` | One or more local image paths or HTTPS URLs |
+| `--task`, `-t` | Custom question sent to the vision model |
+| `--together` | Send multiple images in one API request for joint analysis |
+| `--jobs`, `-j` | Parallel worker count, from `1-64`, default `3` |
+| `--allow-partial` | Return exit code `0` when some parallel tasks fail |
+| `--model`, `-m` | Override the model name |
+| `--output`, `-o` | Set the Markdown output path |
+| `--onboard` | Start interactive configuration |
+
+Parallel results are written in input order. Successful results are preserved when another image fails, and each failure is written as `[分析失败]` with its error. Partial failure returns exit code `2` by default, or `0` with `--allow-partial`.
+
+## Retries and Compatible Endpoints
+
+Transient network errors and these HTTP status codes trigger retries:
 
 ```text
 408, 429, 500, 502, 503, 504
 ```
 
-Transient network errors also trigger retries. Wait time prefers the server's `Retry-After`; when absent or unparseable, exponential backoff is used, with a single wait capped at 30 seconds. Non-transient errors such as authentication errors and parameter errors are not retried.
+The client honors `Retry-After` when present, otherwise uses exponential backoff capped at 30 seconds per delay. Authentication and request-validation errors are not retried.
 
-To use an OpenAI-compatible endpoint, override these options:
+For an OpenAI-compatible vision endpoint:
 
 ```bash
 export GLM_BASE_URL="https://your-endpoint/v4"
@@ -198,58 +241,59 @@ export GLM_MODEL="your-vision-model"
 export GLM_API_KEY="your-token"
 ```
 
-An API Key without a dot is used directly as a Bearer Token; a Zhipu-style dot-separated key is signed into a JWT request token.
+An API key without a dot is sent directly as a Bearer token. A standard dot-separated Zhipu key is converted to a JWT request token.
 
-## Security & Limits
+## Security and Limits
 
-- A single local image must not exceed 10MB by default
-- The API request body must not exceed 20MB by default
-- Remote images allow HTTPS only
-- Each remote request validates the resolved domain address, rejecting loopback, private, link-local, and other restricted addresses
-- Redirects are not followed blindly; every target is re-validated
-- Remote images allow at most 3 redirects and at most 50MB download by default
-- Images are sent as raw Base64, with no automatic compression or scaling
-- Do not upload images containing passwords, tokens, personal identifiable information, or other sensitive content
+- Local images are limited to 10MB each by default
+- API request bodies are limited to 20MB by default
+- Remote downloads are limited to 50MB by default
+- Remote images must use HTTPS
+- DNS results are checked to reject loopback, private, link-local, and other restricted addresses
+- Every redirect target is revalidated, with at most 3 redirects
+- Images are sent as original Base64 data without automatic compression or resizing
+- Do not upload images containing passwords, tokens, personal identity data, or other sensitive information
 
-## Development & Verification
+## Development
 
-The project requires no third-party runtime dependencies. Run tests:
+Run tests:
 
 ```bash
 python -m pytest -q
 ```
 
-Run compile checks:
+Compile Python sources:
 
 ```bash
 python -m compileall -q scripts tests
 ```
 
-Adapter docs are generated from a unified template. After modifying `adapters/SKILL.template.md` or `adapters/metadata.json`, run:
+Adapters are generated from `adapters/SKILL.template.md` and `adapters/metadata.json`:
 
 ```bash
 python scripts/generate_adapters.py
 python scripts/generate_adapters.py --check
 ```
 
-Adapter drift is checked automatically before packaging:
+Build all adapter packages from Windows PowerShell:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build-packages.ps1
 ```
 
-Generated ZIP files are in `dist/`, including:
+Generated ZIP files are written to `dist/`:
 
 ```text
 see-glm-zcode.zip
 see-glm-trae.zip
 see-glm-claude.zip
 see-glm-codex.zip
+see-glm-deepseek-harness.zip
 see-glm-workbuddy.zip
 see-glm-opencode.zip
 ```
 
-Each ZIP contains the matching `SKILL.md`, the shared `scripts/`, and `LICENSE`. Codex and zcode packages additionally contain `agents/openai.yaml`.
+Each package contains its platform-specific `SKILL.md`, the shared `scripts/`, and `LICENSE`. Codex and zcode packages also include `agents/openai.yaml`.
 
 ## Project Structure
 
@@ -267,11 +311,12 @@ see-glm/
 │   ├── trae/SKILL.md
 │   ├── claude/SKILL.md
 │   ├── codex/SKILL.md
+│   ├── deepseek-harness/SKILL.md
 │   ├── workbuddy/SKILL.md
 │   └── opencode/SKILL.md
 ├── agents/openai.yaml
+├── tests/
 ├── build-packages.ps1
-├── tests/test_see.py
 ├── LICENSE
 └── README.md
 ```

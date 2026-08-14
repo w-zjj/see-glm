@@ -1,11 +1,6 @@
 ---
 name: see-glm
-description: Views and analyzes images via the GLM-4.6V vision model.
-license: MIT
-compatibility: opencode
-metadata:
-  version: 1.0.0
-  author: w-zjj
+description: Views, analyzes, compares, and extracts text from local or HTTPS images via GLM-4.6V. Use when DeepSeek Harness needs visual understanding or screenshot analysis.
 ---
 
 # see-glm - GLM Vision Bridge
@@ -99,8 +94,13 @@ GLM_THINKING=disabled
 
 ## 安装
 
-OpenCode 安装路径：
-- 全局：`~/.config/opencode/skills/see-glm/`
-- 项目级：`<project-root>/.opencode/skills/see-glm/`
+DeepSeek Harness 安装路径：
+- CLI 项目级：`<project-root>/.dsh/skills/see-glm/`
+- CLI 用户级：`~/.dsh/skills/see-glm/`
+- Dshdesk 用户级（推荐）：`%APPDATA%\DeepSeekHarness\dsh-home\skills\see-glm\`
 
-OpenCode 也会从 `~/.claude/skills/see-glm/` 自动发现此 Skill。
+DeepSeek Harness 也会从 `<project-root>/.agents/skills/see-glm/` 和 `~/.agents/skills/see-glm/` 自动发现此 Skill。
+
+Dshdesk 将 `DSH_HOME` 和默认工作目录设置为 `%APPDATA%\DeepSeekHarness\dsh-home`。项目级 Skill 仅在会话工作目录位于对应项目内时生效，因此桌面版优先使用上述 Dshdesk 用户级路径。
+
+Dshdesk 内置 Node.js，但不内置 Python。使用此 Skill 前仍需确保系统 `PATH` 中可执行 `python` 或 `python3`。

@@ -50,6 +50,24 @@
       "- 管理员级：`/etc/codex/skills/see-glm/`"
     ]
   },
+  "deepseek-harness": {
+    "frontmatter": [
+      "name: see-glm",
+      "description: Views, analyzes, compares, and extracts text from local or HTTPS images via GLM-4.6V. Use when DeepSeek Harness needs visual understanding or screenshot analysis."
+    ],
+    "install": [
+      "DeepSeek Harness 安装路径：",
+      "- CLI 项目级：`<project-root>/.dsh/skills/see-glm/`",
+      "- CLI 用户级：`~/.dsh/skills/see-glm/`",
+      "- Dshdesk 用户级（推荐）：`%APPDATA%\\DeepSeekHarness\\dsh-home\\skills\\see-glm\\`",
+      "",
+      "DeepSeek Harness 也会从 `<project-root>/.agents/skills/see-glm/` 和 `~/.agents/skills/see-glm/` 自动发现此 Skill。",
+      "",
+      "Dshdesk 将 `DSH_HOME` 和默认工作目录设置为 `%APPDATA%\\DeepSeekHarness\\dsh-home`。项目级 Skill 仅在会话工作目录位于对应项目内时生效，因此桌面版优先使用上述 Dshdesk 用户级路径。",
+      "",
+      "Dshdesk 内置 Node.js，但不内置 Python。使用此 Skill 前仍需确保系统 `PATH` 中可执行 `python` 或 `python3`。"
+    ]
+  },
   "workbuddy": {
     "frontmatter": [
       "name: see-glm",

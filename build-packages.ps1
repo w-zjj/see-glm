@@ -1,10 +1,18 @@
 # build-packages.ps1
-# 一键打包 6 个工具的独立 zip 包
+# 一键打包 7 个工具的独立 zip 包
 # 用法：在仓库根目录执行 .\build-packages.ps1
 
 $ErrorActionPreference = "Stop"
 
-$tools = @("zcode", "trae", "claude", "codex", "workbuddy", "opencode")
+$tools = @(
+    "zcode",
+    "trae",
+    "claude",
+    "codex",
+    "deepseek-harness",
+    "workbuddy",
+    "opencode"
+)
 $repoRoot = $PSScriptRoot
 $distDir = Join-Path $repoRoot "dist"
 

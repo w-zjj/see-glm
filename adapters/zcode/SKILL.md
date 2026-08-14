@@ -1,3 +1,4 @@
+---
 name: see-glm
 description: 通过 GLM-4.6V 视觉模型查看和分析图片，为不支持多模态的模型提供视觉桥接。
 license: MIT

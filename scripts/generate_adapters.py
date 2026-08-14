@@ -32,9 +32,17 @@ def main():
 
     template = TEMPLATE.read_text(encoding="utf-8")
     metadata = json.loads(METADATA.read_text(encoding="utf-8"))
-    expected_names = {"zcode", "trae", "claude", "codex", "workbuddy", "opencode"}
+    expected_names = {
+        "zcode",
+        "trae",
+        "claude",
+        "codex",
+        "deepseek-harness",
+        "workbuddy",
+        "opencode",
+    }
     if set(metadata) != expected_names:
-        raise SystemExit("adapter metadata must define exactly six supported adapters")
+        raise SystemExit("adapter metadata must define exactly seven supported adapters")
 
     mismatches = []
     for name, config in metadata.items():
@@ -44,6 +52,7 @@ def main():
             if not output.is_file() or output.read_text(encoding="utf-8") != rendered:
                 mismatches.append(str(output))
         else:
+            output.parent.mkdir(parents=True, exist_ok=True)
             output.write_text(rendered, encoding="utf-8")
 
     if mismatches:

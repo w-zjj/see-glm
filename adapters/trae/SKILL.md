@@ -1,3 +1,4 @@
+---
 name: see-glm
 description: 通过 GLM-4.6V 视觉模型查看和分析图片。
 supported_os:

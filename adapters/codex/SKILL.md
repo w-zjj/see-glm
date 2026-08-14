@@ -1,3 +1,4 @@
+---
 name: see-glm
 description: Views and analyzes images via the GLM-4.6V vision model.
 license: MIT
